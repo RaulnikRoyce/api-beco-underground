@@ -1,44 +1,131 @@
-// 1. Importando o garçom (Express) que instalamos
+// 1. IMPORTAÇÕES (TODAS NO TOPO)
 const express = require('express');
+const mysql = require('mysql2');
+const cors = require('cors');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
-// Importando a conexão com o banco de dados que acabamos de criar
-const db = require('./db');
-
-const cors = require('cors'); // Importar a biblioteca
-app.use(cors()); // Ativar o CORS para todas as rotas
-
-// 2. Inicializando o aplicativo
+// 2. CONFIGURAÇÕES INICIAIS
 const app = express();
+app.use(express.json()); // Entender JSON
+app.use(cors());         // Permitir comunicação com o Frontend
 
-// 3. Configurando para que a nossa API entenda dados no formato JSON
-app.use(express.json());
+// 3. CONEXÃO COM O BANCO DE DADOS
+const db = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: '',
+    database: 'beco_underground'
+});
 
-// 4. Criando a nossa primeira rota de teste
-// Quando alguém acessar a raiz ('/'), devolvemos essa mensagem
+db.connect((err) => {
+    if (err) throw err;
+    console.log('Banco de dados conectado!');
+});
+
+// --- ROTAS DO SISTEMA ---
+
+// Rota de Teste
 app.get('/', (req, res) => {
     res.json({ mensagem: 'A API de eventos está viva e rodando!' });
 });
 
-// Rota para listar todos os eventos (GET)
-app.get('/eventos', (req, res) => {
-    // 1. Escrevemos a instrução SQL para buscar tudo na tabela 'eventos'
-    const query = 'SELECT * FROM eventos';
+// Rota de Login (Autenticação)
+app.post('/login', async (req, res) => {
+    const { email, senha } = req.body;
+
+    db.query('SELECT * FROM usuarios WHERE email = ?', [email], async (err, resultados) => {
+        if (err) return res.status(500).json({ erro: 'Erro no servidor' });
+        if (resultados.length === 0) return res.status(401).json({ erro: 'Usuário não encontrado' });
+
+        const usuario = resultados[0];
+        const senhaValida = await bcrypt.compare(senha, usuario.senha);
+        
+        if (!senhaValida) return res.status(401).json({ erro: 'Senha incorreta' });
+
+        const token = jwt.sign({ id: usuario.id }, 'MINHA_CHAVE_SECRETA_MUITO_SEGURA', { expiresIn: '1h' });
+        res.json({ mensagem: 'Login realizado com sucesso!', token });
+    });
+});
+
+// Rota para deletar evento
+app.delete('/eventos/:id', (req, res) => {
+    const { id } = req.params;
+    const sql = 'DELETE FROM eventos WHERE id = ?';
+    db.query(sql, [id], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.status(200).send({ message: 'Evento deletado com sucesso!' });
+    });
+});
+
+// ==========================================
+// ROTAS PARA GERENCIAMENTO DE BANDAS
+// ==========================================
+
+// Listar todas as bandas
+app.get('/bandas', (req, res) => {
+    const sql = 'SELECT * FROM bandas';
+    db.query(sql, (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.status(200).json(results);
+    });
+});
+
+// Cadastrar uma nova banda
+app.post('/bandas', (req, res) => {
+    // Usando as colunas exatas do seu phpMyAdmin
+    const { nome, genero, contato, cache_base } = req.body; 
+    const sql = 'INSERT INTO bandas (nome, genero, contato, cache_base) VALUES (?, ?, ?, ?)';
     
-    // 2. Pedimos ao nosso 'db' para executar essa instrução no MySQL
-    db.query(query, (err, resultados) => {
-        if (err) {
-            // Se o banco de dados der erro, registramos no terminal e avisamos o cliente
-            console.error(err);
-            return res.status(500).json({ erro: 'Erro ao buscar os eventos no banco de dados' });
-        }
-        // Se der tudo certo, entregamos os resultados em formato JSON
+    db.query(sql, [nome, genero, contato, cache_base], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.status(201).send({ message: 'Banda cadastrada com sucesso!', id: result.insertId });
+    });
+});
+
+// Deletar uma banda
+app.delete('/bandas/:id', (req, res) => {
+    const { id } = req.params;
+    const sql = 'DELETE FROM bandas WHERE id = ?';
+    db.query(sql, [id], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.status(200).send({ message: 'Banda deletada com sucesso!' });
+    });
+});
+
+// --- MÓDULO DE EVENTOS ---
+app.get('/eventos', (req, res) => {
+    db.query('SELECT * FROM eventos', (err, resultados) => {
+        if (err) return res.status(500).json({ erro: 'Erro ao buscar eventos' });
         res.json(resultados);
     });
 });
 
-// --- MÓDULO DE BANDAS ---
+app.post('/eventos', (req, res) => {
+    const { nome, data, local } = req.body;
+    db.query('INSERT INTO eventos (nome, data, local) VALUES (?, ?, ?)', [nome, data, local], (err, resultados) => {
+        if (err) return res.status(500).json({ erro: 'Erro ao criar evento' });
+        res.status(201).json({ mensagem: 'Evento criado!', id: resultados.insertId });
+    });
+});
 
-// Rota GET: Listar todas as bandas
+app.put('/eventos/:id', (req, res) => {
+    const { id } = req.params;
+    const { nome, data, local, status } = req.body;
+    db.query('UPDATE eventos SET nome = ?, data = ?, local = ?, status = ? WHERE id = ?', [nome, data, local, status, id], (err, resultados) => {
+        if (err) return res.status(500).json({ erro: 'Erro ao atualizar evento' });
+        res.json({ mensagem: 'Evento atualizado!' });
+    });
+});
+
+app.delete('/eventos/:id', (req, res) => {
+    db.query('DELETE FROM eventos WHERE id = ?', [req.params.id], (err, resultados) => {
+        if (err) return res.status(500).json({ erro: 'Erro ao deletar evento' });
+        res.json({ mensagem: 'Evento removido!' });
+    });
+});
+
+// --- MÓDULO DE BANDAS ---
 app.get('/bandas', (req, res) => {
     db.query('SELECT * FROM bandas', (err, resultados) => {
         if (err) return res.status(500).json({ erro: 'Erro ao buscar bandas' });
@@ -46,128 +133,76 @@ app.get('/bandas', (req, res) => {
     });
 });
 
-// Rota POST: Criar nova banda
 app.post('/bandas', (req, res) => {
     const { nome, genero, contato, cache_base } = req.body;
-    const query = 'INSERT INTO bandas (nome, genero, contato, cache_base) VALUES (?, ?, ?, ?)';
-    db.query(query, [nome, genero, contato, cache_base], (err, resultados) => {
+    db.query('INSERT INTO bandas (nome, genero, contato, cache_base) VALUES (?, ?, ?, ?)', [nome, genero, contato, cache_base], (err, resultados) => {
         if (err) return res.status(500).json({ erro: 'Erro ao cadastrar banda' });
         res.json({ mensagem: 'Banda cadastrada!', id: resultados.insertId });
     });
 });
 
-// Rota para ADICIONAR uma banda ao line-up de um evento
+// --- MÓDULO DE LINEUP ---
 app.post('/lineup', (req, res) => {
     const { evento_id, banda_id, horario } = req.body;
-    
-    // O comando SQL liga os IDs das duas tabelas diferentes
-    const query = 'INSERT INTO lineup (evento_id, banda_id, horario) VALUES (?, ?, ?)';
-    
-    db.query(query, [evento_id, banda_id, horario], (err, resultados) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).json({ erro: 'Erro ao criar o lineup' });
-        }
-        res.status(201).json({ mensagem: 'Banda adicionada ao line-up do evento!', id: resultados.insertId });
+    db.query('INSERT INTO lineup (evento_id, banda_id, horario) VALUES (?, ?, ?)', [evento_id, banda_id, horario], (err, resultados) => {
+        if (err) return res.status(500).json({ erro: 'Erro ao criar o lineup' });
+        res.status(201).json({ mensagem: 'Banda adicionada ao line-up!', id: resultados.insertId });
     });
 });
 
-// Rota para BUSCAR o line-up completo de um evento (JOIN)
 app.get('/lineup/:evento_id', (req, res) => {
     const { evento_id } = req.params;
-
-    // Usamos o INNER JOIN para combinar as tabelas
-    // O 'b' e o 'l' são apelidos (aliases) para facilitar a leitura
-    const query = `
-        SELECT l.id, b.nome AS banda_nome, b.genero, l.horario
+    const sql = `
+        SELECT l.id AS lineup_id, b.nome, b.genero, l.horario, 
+               COALESCE(l.cache_negociado, b.cache_base) AS cache
         FROM lineup l
-        INNER JOIN bandas b ON l.banda_id = b.id
+        JOIN bandas b ON l.banda_id = b.id
         WHERE l.evento_id = ?
+        ORDER BY l.horario ASC
     `;
-
-    db.query(query, [evento_id], (err, resultados) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).json({ erro: 'Erro ao buscar o line-up' });
-        }
-        res.json(resultados);
+    db.query(sql, [evento_id], (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.status(200).json(results);
     });
 });
 
-// Rota PUT: Atualizar banda
-app.put('/bandas/:id', (req, res) => {
-    const { id } = req.params;
-    const { nome, genero, contato, cache_base } = req.body;
-    const query = 'UPDATE bandas SET nome = ?, genero = ?, contato = ?, cache_base = ? WHERE id = ?';
-    db.query(query, [nome, genero, contato, cache_base, id], (err, resultados) => {
-        if (err) return res.status(500).json({ erro: 'Erro ao atualizar banda' });
-        res.json({ mensagem: 'Banda atualizada!' });
-    });
-});
+// ==========================================
+// ROTAS PARA GERENCIAMENTO DE LINE-UP
+// ==========================================
 
-// Rota DELETE: Remover banda
-app.delete('/bandas/:id', (req, res) => {
-    const { id } = req.params;
-    db.query('DELETE FROM bandas WHERE id = ?', [id], (err, resultados) => {
-        if (err) return res.status(500).json({ erro: 'Erro ao deletar banda' });
-        res.json({ mensagem: 'Banda removida!' });
-    });
-});
-
-// Rota para CRIAR um novo evento (POST)
-app.post('/eventos', (req, res) => {
-    // 1. Pegamos os dados que o usuário enviou no "corpo" (body) da requisição
-    const { nome, data, local } = req.body;
-
-    // 2. Montamos o comando SQL de inserção (Os '?' são uma medida de segurança contra hackers)
-    const query = 'INSERT INTO eventos (nome, data, local) VALUES (?, ?, ?)';
-
-    // 3. Executamos no banco de dados
-    db.query(query, [nome, data, local], (err, resultados) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).json({ erro: 'Erro ao criar o evento' });
-        }
-        // Se der certo, retornamos o status 201 (Created) e o ID gerado pelo MySQL
-        res.status(201).json({ 
-            mensagem: 'Evento do Beco Underground criado com sucesso!', 
-            id: resultados.insertId 
-        });
-    });
-});
-
-// Rota para ATUALIZAR um evento existente (PUT)
-app.put('/eventos/:id', (req, res) => {
-    const { id } = req.params; // Pegamos o ID da URL
-    const { nome, data, local, status } = req.body; // Pegamos os dados novos
-
-    const query = 'UPDATE eventos SET nome = ?, data = ?, local = ?, status = ? WHERE id = ?';
+// Listar o line-up de um evento específico (A mágica do JOIN)
+app.get('/lineup/:evento_id', (req, res) => {
+    const { evento_id } = req.params;
     
-    db.query(query, [nome, data, local, status, id], (err, resultados) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).json({ erro: 'Erro ao atualizar o evento' });
-        }
-        res.json({ mensagem: 'Evento atualizado com sucesso!' });
+    const sql = `
+        SELECT l.id AS lineup_id, b.nome, b.genero, l.horario, 
+               COALESCE(l.cache_negociado, b.cache_base) AS cache
+        FROM lineup l
+        JOIN bandas b ON l.banda_id = b.id
+        WHERE l.evento_id = ?
+        ORDER BY l.horario ASC
+    `;
+    
+    db.query(sql, [evento_id], (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.status(200).json(results);
     });
 });
 
-// Rota para APAGAR um evento (DELETE)
-app.delete('/eventos/:id', (req, res) => {
-    const { id } = req.params;
-
-    const query = 'DELETE FROM eventos WHERE id = ?';
-
-    db.query(query, [id], (err, resultados) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).json({ erro: 'Erro ao deletar o evento' });
-        }
-        res.json({ mensagem: 'Evento removido com sucesso!' });
+// Adicionar banda ao line-up
+app.post('/lineup', (req, res) => {
+    const { evento_id, banda_id, horario, cache_negociado } = req.body;
+    // Se o cache_negociado vier vazio, inserimos como nulo para o banco usar o cache_base depois
+    const cacheFinal = cache_negociado ? cache_negociado : null; 
+    
+    const sql = 'INSERT INTO lineup (evento_id, banda_id, horario, cache_negociado) VALUES (?, ?, ?, ?)';
+    db.query(sql, [evento_id, banda_id, horario, cacheFinal], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.status(201).send({ message: 'Artista adicionado ao line-up!', id: result.insertId });
     });
 });
 
-// 5. Definindo a porta do servidor e ligando a máquina
+// 4. INICIAR O SERVIDOR
 const PORTA = 3000;
 app.listen(PORTA, () => {
     console.log(`Servidor rodando! Acesse: http://localhost:${PORTA}`);
