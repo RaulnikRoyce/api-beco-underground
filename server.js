@@ -12,10 +12,11 @@ app.use(cors());         // Permitir comunicação com o Frontend
 
 // 3. CONEXÃO COM O BANCO DE DADOS
 const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'beco_underground'
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'beco_underground',
+  port: process.env.DB_PORT || 3306
 });
 
 db.connect((err) => {
