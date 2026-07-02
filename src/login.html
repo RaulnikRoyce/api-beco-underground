@@ -34,12 +34,12 @@
             const mensagem = document.getElementById('mensagem');
 
             try {
-                // Batendo na sua API de produção
-                const resposta = await fetch('https://api-beco-underground.onrender.com/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, senha })
-                });
+                // CÓDIGO CORRIGIDO:
+const resposta = await fetch('https://api-beco-underground.onrender.com/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, senha })
+});
 
                 const dados = await resposta.json();
 
