@@ -51,6 +51,32 @@ app.post('/login', async (req, res) => {
     });
 });
 
+// ==========================================
+// MIDDLEWARE DE SEGURANÇA (GUARDA-COSTAS)
+// ==========================================
+function verificarToken(req, res, next) {
+    // O token é enviado no "cabeçalho" (header) da requisição
+    const tokenHeader = req.headers['authorization'];
+    
+    if (!tokenHeader) {
+        return res.status(403).json({ erro: 'Nenhum token fornecido. Acesso negado!' });
+    }
+    
+    // O padrão da web é enviar o token escrito "Bearer SEU_TOKEN". Aqui nós limpamos isso.
+    const token = tokenHeader.replace('Bearer ', '');
+
+    // Verifica se o token é válido e se foi gerado pela sua chave secreta
+    jwt.verify(token, 'MINHA_CHAVE_SECRETA_MUITO_SEGURA', (err, decoded) => {
+        if (err) {
+            return res.status(401).json({ erro: 'Token inválido ou expirado!' });
+        }
+        
+        // Se tudo estiver certo, ele anota quem é o usuário e deixa o processo continuar
+        req.usuarioId = decoded.id;
+        next(); // O next() é o comando que abre a catraca: "Pode entrar!"
+    });
+}
+
 // Rota para Cadastrar Novo Usuário (Produtor)
 app.post('/registrar', async (req, res) => {
     const { email, senha } = req.body;
@@ -76,6 +102,7 @@ app.post('/registrar', async (req, res) => {
 // ROTAS DE EVENTOS
 // ==========================================
 
+// GET: Público (Para listar na tela inicial)
 app.get('/eventos', (req, res) => {
     db.query('SELECT * FROM eventos', (err, resultados) => {
         if (err) return res.status(500).json({ erro: 'Erro ao buscar eventos' });
@@ -83,7 +110,8 @@ app.get('/eventos', (req, res) => {
     });
 });
 
-app.post('/eventos', (req, res) => {
+// POST: Protegido
+app.post('/eventos', verificarToken, (req, res) => {
     const { nome, data, local } = req.body;
     db.query('INSERT INTO eventos (nome, data, local) VALUES (?, ?, ?)', [nome, data, local], (err, resultados) => {
         if (err) return res.status(500).json({ erro: 'Erro ao criar evento' });
@@ -91,7 +119,8 @@ app.post('/eventos', (req, res) => {
     });
 });
 
-app.put('/eventos/:id', (req, res) => {
+// PUT: Protegido
+app.put('/eventos/:id', verificarToken, (req, res) => {
     const { id } = req.params;
     const { nome, data, local, status } = req.body;
     db.query('UPDATE eventos SET nome = ?, data = ?, local = ?, status = ? WHERE id = ?', [nome, data, local, status, id], (err, resultados) => {
@@ -100,7 +129,8 @@ app.put('/eventos/:id', (req, res) => {
     });
 });
 
-app.delete('/eventos/:id', (req, res) => {
+// DELETE: Protegido
+app.delete('/eventos/:id', verificarToken, (req, res) => {
     db.query('DELETE FROM eventos WHERE id = ?', [req.params.id], (err, resultados) => {
         if (err) return res.status(500).json({ erro: 'Erro ao deletar evento' });
         res.json({ mensagem: 'Evento removido!' });
@@ -111,6 +141,7 @@ app.delete('/eventos/:id', (req, res) => {
 // ROTAS DE BANDAS
 // ==========================================
 
+// GET: Público
 app.get('/bandas', (req, res) => {
     db.query('SELECT * FROM bandas', (err, resultados) => {
         if (err) return res.status(500).json({ erro: 'Erro ao buscar bandas' });
@@ -118,7 +149,8 @@ app.get('/bandas', (req, res) => {
     });
 });
 
-app.post('/bandas', (req, res) => {
+// POST: Protegido
+app.post('/bandas', verificarToken, (req, res) => {
     const { nome, genero, contato, cache_base } = req.body;
     db.query('INSERT INTO bandas (nome, genero, contato, cache_base) VALUES (?, ?, ?, ?)', [nome, genero, contato, cache_base], (err, resultados) => {
         if (err) return res.status(500).json({ erro: 'Erro ao cadastrar banda' });
@@ -126,7 +158,8 @@ app.post('/bandas', (req, res) => {
     });
 });
 
-app.delete('/bandas/:id', (req, res) => {
+// DELETE: Protegido
+app.delete('/bandas/:id', verificarToken, (req, res) => {
     const { id } = req.params;
     db.query('DELETE FROM bandas WHERE id = ?', [id], (err, result) => {
         if (err) return res.status(500).send(err);
@@ -138,6 +171,7 @@ app.delete('/bandas/:id', (req, res) => {
 // ROTAS DE LINE-UP
 // ==========================================
 
+// GET: Público
 app.get('/lineup/:evento_id', (req, res) => {
     const { evento_id } = req.params;
     const sql = `
@@ -154,7 +188,8 @@ app.get('/lineup/:evento_id', (req, res) => {
     });
 });
 
-app.post('/lineup', (req, res) => {
+// POST: Protegido
+app.post('/lineup', verificarToken, (req, res) => {
     const { evento_id, banda_id, horario, cache_negociado } = req.body;
     const cacheFinal = cache_negociado ? cache_negociado : null; 
     
@@ -169,6 +204,7 @@ app.post('/lineup', (req, res) => {
 // ROTA DO DASHBOARD (Custos do Evento)
 // ==========================================
 
+// GET: Público
 app.get('/dashboard/:evento_id', (req, res) => {
     const eventoId = req.params.evento_id;
     const sql = `

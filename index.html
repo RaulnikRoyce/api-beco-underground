@@ -1,6 +1,21 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <script>
+    // Verifica se o usuário tem o "crachá" salvo no navegador
+    const tokenAutorizacao = localStorage.getItem('token_beco');
+    
+    // Se não tiver o crachá, redireciona para o login imediatamente
+    if (!tokenAutorizacao) {
+        window.location.replace('login.html');
+    }
+
+    // Função para sair do sistema (rasgar o crachá)
+    function sairDoSistema() {
+        localStorage.removeItem('token_beco');
+        window.location.replace('login.html');
+    }
+</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel - Beco Underground</title>
@@ -15,6 +30,11 @@
 </head>
 <body>
 
+ <div style="text-align: right; margin-bottom: 20px; max-width: 500px; margin: 0 auto;">
+        <button onclick="sairDoSistema()" style="background-color: #333; color: #fff; border: 1px solid #ff4d4d; padding: 5px 15px; border-radius: 4px; cursor: pointer;">
+            Sair do Sistema (Logout)
+        </button>
+    </div>
     <div class="card">
         <h1>Dashboard: Sábado Maldito</h1>
         <p>Total de Atrações: <span id="total-bandas">...</span></p>
