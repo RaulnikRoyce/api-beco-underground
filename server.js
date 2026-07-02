@@ -63,6 +63,94 @@ app.post('/bandas', (req, res) => {
   });
 });
 
+// ==========================================
+// ROTAS DE EVENTOS
+// ==========================================
+
+// ROTA GET: Listar todos os eventos
+app.get('/eventos', (req, res) => {
+  const sql = 'SELECT * FROM eventos';
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ erro: 'Erro ao buscar eventos' });
+    }
+    res.json(results);
+  });
+});
+
+// ROTA POST: Criar um novo evento
+app.post('/eventos', (req, res) => {
+  const { nome, data, local } = req.body;
+  const sql = 'INSERT INTO eventos (nome, data, local) VALUES (?, ?, ?)';
+  db.query(sql, [nome, data, local], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ erro: 'Erro ao criar evento' });
+    }
+    res.status(201).json({ mensagem: 'Evento criado com sucesso!', id: result.insertId });
+  });
+});
+
+// ==========================================
+// ROTAS DE LINE-UP (Vinculando Banda ao Evento)
+// ==========================================
+
+// ROTA POST: Adicionar banda ao line-up
+app.post('/lineup', (req, res) => {
+  const { evento_id, banda_id, horario, cache_negociado } = req.body;
+  const sql = 'INSERT INTO lineup (evento_id, banda_id, horario, cache_negociado) VALUES (?, ?, ?, ?)';
+  db.query(sql, [evento_id, banda_id, horario, cache_negociado], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ erro: 'Erro ao adicionar ao line-up' });
+    }
+    res.status(201).json({ mensagem: 'Banda adicionada ao line-up!', id: result.insertId });
+  });
+});
+
+// ==========================================
+// ROTA DO DASHBOARD (Inteligência de Negócio)
+// ==========================================
+
+// ROTA GET: Buscar custos e atrações de um evento específico
+app.get('/dashboard/:evento_id', (req, res) => {
+  const eventoId = req.params.evento_id;
+  
+  // Usamos JOIN para cruzar dados das tabelas lineup, bandas e eventos.
+  // COALESCE pega o cache_negociado. Se for NULL, ele usa o cache_base da banda.
+  const sql = `
+    SELECT 
+      b.nome AS banda,
+      l.horario,
+      COALESCE(l.cache_negociado, b.cache_base) AS custo_banda
+    FROM lineup l
+    JOIN bandas b ON l.banda_id = b.id
+    WHERE l.evento_id = ?
+    ORDER BY l.horario ASC
+  `;
+  
+  db.query(sql, [eventoId], (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ erro: 'Erro ao gerar dashboard' });
+    }
+    
+    // Calcula o custo total somando os valores retornados pelo banco
+    let custoTotal = 0;
+    results.forEach(item => {
+      custoTotal += parseFloat(item.custo_banda || 0);
+    });
+
+    res.json({
+      evento_id: eventoId,
+      total_bandas: results.length,
+      custo_total_caches: custoTotal,
+      atracoes: results
+    });
+  });
+});
+
 // --- ROTAS DO SISTEMA ---
 
 // Rota de Teste
