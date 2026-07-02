@@ -5,6 +5,7 @@ const bandaRoutes = require('./routes/banda.routes'); // O arquivo que criamos a
 const eventoRoutes = require('./routes/evento.routes');
 const lineupRoutes = require('./routes/lineup.routes');
 const authRoutes = require('./routes/auth.routes');
+const dashboardRoutes = require('./routes/dashboard.routes');
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use('/bandas', bandaRoutes);
 app.use('/eventos', eventoRoutes);
 app.use('/lineup', lineupRoutes);
 app.use('/auth', authRoutes);
+app.use('/dashboard', dashboardRoutes);
 
 // Rota de teste
 app.get('/', (req, res) => res.json({ mensagem: 'API operacional' }));
