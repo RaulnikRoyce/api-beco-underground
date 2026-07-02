@@ -33,11 +33,11 @@
     </div>
 
     <div class="card">
-        <h1>Dashboard: 
-            <select id="select-dashboard" onchange="carregarDashboard()" style="background: #222; color: #ff4d4d; border: none; font-size: 20px;">
-                <option value="">Carregando eventos...</option>
-            </select>
-        </h1>
+        <h1>Dashboard: <span id="nome-evento-display">Carregando...</span>
+        <select id="select-dashboard" onchange="carregarDashboard()" style="background: #222; color: #ff4d4d; border: none; font-size: 20px; vertical-align: middle;">
+            <option value="">Carregando eventos...</option>
+        </select>
+    </h1>
         <p>Total de Atrações: <span id="total-bandas">...</span></p>
         <p>Custo com Cachês: <span class="custo" id="custo-total">R$ 0,00</span></p>
         
@@ -67,15 +67,29 @@
 
         // 1. Carrega os eventos no Select
         async function popularSelectEventos() {
-            const res = await fetch(`${API_URL}/eventos`);
-            const eventos = await res.json();
-            const select = document.getElementById('select-dashboard');
-            
-            select.innerHTML = ''; 
-            eventos.forEach(ev => {
-                select.innerHTML += `<option value="${ev.id}">${ev.nome}</option>`;
-            });
-            carregarDashboard(); // Carrega o dashboard do primeiro evento ao iniciar
+            try {
+                const res = await fetch(`${API_URL}/eventos`);
+                const eventos = await res.json();
+                const select = document.getElementById('select-dashboard');
+                
+                select.innerHTML = ''; 
+                
+                if (eventos.length === 0) {
+                    select.innerHTML = '<option value="">Nenhum evento cadastrado</option>';
+                    return;
+                }
+
+                eventos.forEach(ev => {
+                    select.innerHTML += `<option value="${ev.id}">${ev.nome}</option>`;
+                });
+
+                // Força a seleção do primeiro evento e dispara o carregamento
+                select.selectedIndex = 0;
+                carregarDashboard(); 
+            } catch (erro) {
+                console.error("Erro ao popular eventos:", erro);
+                document.getElementById('select-dashboard').innerHTML = '<option value="">Erro ao carregar</option>';
+            }
         }
 
         // 2. Carrega o Dashboard dinamicamente
@@ -83,27 +97,44 @@
             const idEvento = document.getElementById('select-dashboard').value;
             if(!idEvento) return;
 
+            // Feedback visual de carregamento
+            document.getElementById('nome-evento-display').innerText = "Carregando...";
+            const lista = document.getElementById('lista-bandas');
+            lista.innerHTML = '<li>Carregando...</li>';
+
             try {
+                // 1. Busca os detalhes do evento
+                const resEvento = await fetch(`${API_URL}/eventos/${idEvento}`);
+                const dadosEvento = await resEvento.json();
+                
+                // Atualiza o título
+                document.getElementById('nome-evento-display').innerText = dadosEvento.nome;
+
+                // 2. Busca os dados do Dashboard
                 const resposta = await fetch(`${API_URL}/dashboard/${idEvento}`);
                 const dados = await resposta.json();
 
                 document.getElementById('total-bandas').innerText = dados.total_bandas;
                 document.getElementById('custo-total').innerText = `R$ ${dados.custo_total_caches.toFixed(2)}`;
 
-                const lista = document.getElementById('lista-bandas');
                 lista.innerHTML = ''; 
                 
-                dados.atracoes.forEach(atracao => {
-                    const li = document.createElement('li');
-                    li.innerText = `${atracao.horario} - ${atracao.banda} (Cachê: R$ ${atracao.custo_banda})`;
-                    lista.appendChild(li);
-                });
+                if (dados.atracoes.length === 0) {
+                    lista.innerHTML = '<li>Nenhuma banda vinculada.</li>';
+                } else {
+                    dados.atracoes.forEach(atracao => {
+                        const li = document.createElement('li');
+                        li.innerText = `${atracao.horario} - ${atracao.banda} (Cachê: R$ ${atracao.custo_banda})`;
+                        lista.appendChild(li);
+                    });
+                }
             } catch (erro) {
-                console.error("Erro ao carregar dashboard:", erro);
+                console.error("Erro no Dashboard:", erro);
+                document.getElementById('lista-bandas').innerHTML = "<li>Erro ao buscar dados.</li>";
             }
         }
 
-        // 3. Lógica do Formulário de Cadastro
+        // 3. Lógica do Formulário de Cadastro (mantida igual)
         document.getElementById('form-banda').addEventListener('submit', async function(evento) {
             evento.preventDefault();
             const novaBanda = {
@@ -117,15 +148,12 @@
                 const token = localStorage.getItem('token_beco');
                 const resposta = await fetch(`${API_URL}/bandas`, {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify(novaBanda)
                 });
 
                 if (resposta.ok) {
-                    document.getElementById('mensagem-form').innerText = "Banda cadastrada com sucesso!";
+                    document.getElementById('mensagem-form').innerText = "Banda cadastrada!";
                     document.getElementById('form-banda').reset();
                 } else {
                     document.getElementById('mensagem-form').innerText = "Erro ao cadastrar.";

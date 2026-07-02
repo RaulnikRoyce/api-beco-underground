@@ -112,6 +112,14 @@ app.get('/eventos/:id', (req, res) => {
     });
 });
 
+// GET: Listar todos os eventos
+app.get('/eventos', (req, res) => {
+    db.query('SELECT * FROM eventos', (err, resultados) => {
+        if (err) return res.status(500).json({ erro: 'Erro ao buscar eventos' });
+        res.json(resultados);
+    });
+});
+
 // POST: Protegido
 app.post('/eventos', verificarToken, (req, res) => {
     const { nome, data, local } = req.body;
