@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel - Beco Underground</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #1a1a1a; color: #fff; padding: 20px; }
+        .card { background-color: #333; padding: 20px; border-radius: 8px; max-width: 500px; margin: 0 auto; }
+        h1 { color: #ff4d4d; }
+        .custo { font-size: 24px; font-weight: bold; color: #4CAF50; }
+        ul { list-style-type: none; padding: 0; }
+        li { background: #444; margin: 10px 0; padding: 10px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>Dashboard: Sábado Maldito</h1>
+        <p>Total de Atrações: <span id="total-bandas">...</span></p>
+        <p>Custo com Cachês: <span class="custo" id="custo-total">R$ 0,00</span></p>
+        
+        <h3>Line-up</h3>
+        <ul id="lista-bandas">
+            <li>Carregando atrações...</li>
+        </ul>
+    </div>
+
+<div class="card" style="margin-top: 20px;">
+        <h2 style="color: #ff4d4d;">Cadastrar Nova Banda</h2>
+        <form id="form-banda">
+            <input type="text" id="nome-banda" placeholder="Nome da Banda (ex: Krisiun)" required style="width: 90%; padding: 8px; margin-bottom: 10px;"><br>
+            <input type="text" id="genero-banda" placeholder="Gênero Musical" style="width: 90%; padding: 8px; margin-bottom: 10px;"><br>
+            <input type="email" id="contato-banda" placeholder="E-mail de Contato" style="width: 90%; padding: 8px; margin-bottom: 10px;"><br>
+            <input type="number" id="cache-banda" placeholder="Cachê Base (R$)" step="0.01" required style="width: 90%; padding: 8px; margin-bottom: 10px;"><br>
+            
+            <button type="submit" style="background-color: #ff4d4d; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer;">
+                Salvar no Banco de Dados
+            </button>
+        </form>
+        <p id="mensagem-form" style="color: #4CAF50; font-weight: bold; margin-top: 10px;"></p>
+    </div>
+
+    <script>
+        // Esta função vai até a sua API buscar os dados
+        async function carregarDashboard() {
+            try {
+                // Aqui está o SEU link oficial do back-end!
+                const resposta = await fetch('https://api-beco-underground.onrender.com/dashboard/2');
+                const dados = await resposta.json();
+
+                // Atualizando o HTML com os dados que vieram do banco de dados
+                document.getElementById('total-bandas').innerText = dados.total_bandas;
+                document.getElementById('custo-total').innerText = `R$ ${dados.custo_total_caches.toFixed(2)}`;
+
+                // Limpando o "Carregando..." e listando as bandas
+                const lista = document.getElementById('lista-bandas');
+                lista.innerHTML = ''; 
+                
+                dados.atracoes.forEach(atracao => {
+                    const li = document.createElement('li');
+                    li.innerText = `${atracao.horario} - ${atracao.banda} (Cachê: R$ ${atracao.custo_banda})`;
+                    lista.appendChild(li);
+                });
+
+            } catch (erro) {
+                console.error("Erro ao carregar os dados:", erro);
+                document.getElementById('lista-bandas').innerHTML = "<li>Erro ao carregar o sistema. Verifique se o servidor está online.</li>";
+            }
+        }
+
+        // Chama a função assim que a página abrir
+        carregarDashboard();
+// Captura o formulário quando o usuário clica em Salvar
+        document.getElementById('form-banda').addEventListener('submit', async function(evento) {
+            evento.preventDefault(); // Evita que a página recarregue
+
+            // Monta o "pacote" de dados pegando os valores dos campos
+            const novaBanda = {
+                nome: document.getElementById('nome-banda').value,
+                genero: document.getElementById('genero-banda').value,
+                contato: document.getElementById('contato-banda').value,
+                cache_base: parseFloat(document.getElementById('cache-banda').value)
+            };
+
+            try {
+                // Envia os dados via POST para a sua API oficial
+                const resposta = await fetch('https://api-beco-underground.onrender.com/bandas', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(novaBanda)
+                });
+
+                if (resposta.ok) {
+                    document.getElementById('mensagem-form').innerText = "Banda cadastrada com sucesso!";
+                    document.getElementById('form-banda').reset(); // Limpa os campos
+                } else {
+                    document.getElementById('mensagem-form').innerText = "Erro ao cadastrar. Verifique os dados.";
+                    document.getElementById('mensagem-form').style.color = "red";
+                }
+            } catch (erro) {
+                console.error("Erro de conexão:", erro);
+                document.getElementById('mensagem-form').innerText = "Erro ao conectar com o servidor.";
+            }
+        });
+    </script>
+</body>
+</html>

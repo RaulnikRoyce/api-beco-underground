@@ -51,6 +51,27 @@ app.post('/login', async (req, res) => {
     });
 });
 
+// Rota para Cadastrar Novo Usuário (Produtor)
+app.post('/registrar', async (req, res) => {
+    const { email, senha } = req.body;
+
+    try {
+        // O Bcrypt pega a sua senha normal e transforma em um código seguro
+        const senhaCriptografada = await bcrypt.hash(senha, 10);
+        
+        const sql = 'INSERT INTO usuarios (email, senha) VALUES (?, ?)';
+        db.query(sql, [email, senhaCriptografada], (err, result) => {
+            if (err) {
+                console.error(err);
+                return res.status(500).json({ erro: 'Erro ao cadastrar usuário' });
+            }
+            res.status(201).json({ mensagem: 'Usuário cadastrado com sucesso!' });
+        });
+    } catch (erro) {
+        res.status(500).json({ erro: 'Erro interno no servidor' });
+    }
+});
+
 // ==========================================
 // ROTAS DE EVENTOS
 // ==========================================
