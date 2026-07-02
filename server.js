@@ -11,12 +11,19 @@ app.use(express.json()); // Entender JSON
 app.use(cors());         // Permitir comunicação com o Frontend
 
 // 3. CONEXÃO COM O BANCO DE DADOS
+// Onde você cria a conexão com o banco, deixe assim:
 const db = mysql.createConnection({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'beco_underground',
-  port: process.env.DB_PORT || 3306
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
+});
+
+// Mais abaixo, onde você inicia o servidor (app.listen), deixe assim para evitar o erro de Timeout de porta:
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
 
 db.connect((err) => {
