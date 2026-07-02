@@ -102,11 +102,13 @@ app.post('/registrar', async (req, res) => {
 // ROTAS DE EVENTOS
 // ==========================================
 
-// GET: Público (Para listar na tela inicial)
-app.get('/eventos', (req, res) => {
-    db.query('SELECT * FROM eventos', (err, resultados) => {
-        if (err) return res.status(500).json({ erro: 'Erro ao buscar eventos' });
-        res.json(resultados);
+// GET: Buscar detalhes de um evento específico pelo ID
+app.get('/eventos/:id', (req, res) => {
+    const { id } = req.params;
+    db.query('SELECT * FROM eventos WHERE id = ?', [id], (err, resultados) => {
+        if (err) return res.status(500).json({ erro: 'Erro ao buscar evento' });
+        if (resultados.length === 0) return res.status(404).json({ erro: 'Evento não encontrado' });
+        res.json(resultados[0]);
     });
 });
 

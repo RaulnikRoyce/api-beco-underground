@@ -2,15 +2,11 @@
 <html lang="pt-BR">
 <head>
     <script>
-        // Verifica se o usuário tem o "crachá" salvo no navegador
         const tokenAutorizacao = localStorage.getItem('token_beco');
-        
-        // Se não tiver o crachá, redireciona para o login imediatamente
         if (!tokenAutorizacao) {
             window.location.replace('login.html');
         }
 
-        // Função para sair do sistema (rasgar o crachá)
         function sairDoSistema() {
             localStorage.removeItem('token_beco');
             window.location.replace('login.html');
@@ -30,23 +26,28 @@
 </head>
 <body>
 
- <div style="text-align: right; margin-bottom: 20px; max-width: 500px; margin: 0 auto;">
+    <div style="text-align: right; margin-bottom: 20px; max-width: 500px; margin: 0 auto;">
         <button onclick="sairDoSistema()" style="background-color: #333; color: #fff; border: 1px solid #ff4d4d; padding: 5px 15px; border-radius: 4px; cursor: pointer;">
             Sair do Sistema (Logout)
         </button>
     </div>
+
     <div class="card">
-        <h1>Dashboard: Sábado Maldito</h1>
+        <h1>Dashboard: 
+            <select id="select-dashboard" onchange="carregarDashboard()" style="background: #222; color: #ff4d4d; border: none; font-size: 20px;">
+                <option value="">Carregando eventos...</option>
+            </select>
+        </h1>
         <p>Total de Atrações: <span id="total-bandas">...</span></p>
         <p>Custo com Cachês: <span class="custo" id="custo-total">R$ 0,00</span></p>
         
         <h3>Line-up</h3>
         <ul id="lista-bandas">
-            <li>Carregando atrações...</li>
+            <li>Selecione um evento acima...</li>
         </ul>
     </div>
 
-<div class="card" style="margin-top: 20px;">
+    <div class="card" style="margin-top: 20px;">
         <h2 style="color: #ff4d4d;">Cadastrar Nova Banda</h2>
         <form id="form-banda">
             <input type="text" id="nome-banda" placeholder="Nome da Banda (ex: Krisiun)" required style="width: 90%; padding: 8px; margin-bottom: 10px;"><br>
@@ -62,18 +63,33 @@
     </div>
 
     <script>
-        // Esta função vai até a sua API buscar os dados
+        const API_URL = 'https://api-beco-underground.onrender.com';
+
+        // 1. Carrega os eventos no Select
+        async function popularSelectEventos() {
+            const res = await fetch(`${API_URL}/eventos`);
+            const eventos = await res.json();
+            const select = document.getElementById('select-dashboard');
+            
+            select.innerHTML = ''; 
+            eventos.forEach(ev => {
+                select.innerHTML += `<option value="${ev.id}">${ev.nome}</option>`;
+            });
+            carregarDashboard(); // Carrega o dashboard do primeiro evento ao iniciar
+        }
+
+        // 2. Carrega o Dashboard dinamicamente
         async function carregarDashboard() {
+            const idEvento = document.getElementById('select-dashboard').value;
+            if(!idEvento) return;
+
             try {
-                // Aqui está o SEU link oficial do back-end!
-                const resposta = await fetch('https://api-beco-underground.onrender.com/dashboard/2');
+                const resposta = await fetch(`${API_URL}/dashboard/${idEvento}`);
                 const dados = await resposta.json();
 
-                // Atualizando o HTML com os dados que vieram do banco de dados
                 document.getElementById('total-bandas').innerText = dados.total_bandas;
                 document.getElementById('custo-total').innerText = `R$ ${dados.custo_total_caches.toFixed(2)}`;
 
-                // Limpando o "Carregando..." e listando as bandas
                 const lista = document.getElementById('lista-bandas');
                 lista.innerHTML = ''; 
                 
@@ -82,21 +98,14 @@
                     li.innerText = `${atracao.horario} - ${atracao.banda} (Cachê: R$ ${atracao.custo_banda})`;
                     lista.appendChild(li);
                 });
-
             } catch (erro) {
-                console.error("Erro ao carregar os dados:", erro);
-                document.getElementById('lista-bandas').innerHTML = "<li>Erro ao carregar o sistema. Verifique se o servidor está online.</li>";
+                console.error("Erro ao carregar dashboard:", erro);
             }
         }
 
-        // Chama a função assim que a página abrir
-        carregarDashboard();
-
-        // Captura o formulário quando o usuário clica em Salvar
+        // 3. Lógica do Formulário de Cadastro
         document.getElementById('form-banda').addEventListener('submit', async function(evento) {
-            evento.preventDefault(); // Evita que a página recarregue
-
-            // Monta o "pacote" de dados pegando os valores dos campos
+            evento.preventDefault();
             const novaBanda = {
                 nome: document.getElementById('nome-banda').value,
                 genero: document.getElementById('genero-banda').value,
@@ -105,31 +114,29 @@
             };
 
             try {
-                // Pegamos o crachá salvo no navegador
                 const token = localStorage.getItem('token_beco');
-
-                // Envia os dados via POST para a sua API oficial
-                const resposta = await fetch('https://api-beco-underground.onrender.com/bandas', {
+                const resposta = await fetch(`${API_URL}/bandas`, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}` // <--- ENVIANDO O CRACHÁ AQUI!
+                        'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify(novaBanda)
                 });
 
                 if (resposta.ok) {
                     document.getElementById('mensagem-form').innerText = "Banda cadastrada com sucesso!";
-                    document.getElementById('form-banda').reset(); // Limpa os campos
+                    document.getElementById('form-banda').reset();
                 } else {
-                    document.getElementById('mensagem-form').innerText = "Erro ao cadastrar. Verifique os dados ou seu login.";
-                    document.getElementById('mensagem-form').style.color = "red";
+                    document.getElementById('mensagem-form').innerText = "Erro ao cadastrar.";
                 }
             } catch (erro) {
-                console.error("Erro de conexão:", erro);
-                document.getElementById('mensagem-form').innerText = "Erro ao conectar com o servidor.";
+                document.getElementById('mensagem-form').innerText = "Erro de conexão.";
             }
         });
+
+        // Inicializa a página
+        popularSelectEventos();
     </script>
 </body>
 </html>

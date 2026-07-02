@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <script>
+        // O Guarda-costas: Verifica o token antes de carregar a página
+        const tokenAutorizacao = localStorage.getItem('token_beco');
+        if (!tokenAutorizacao) {
+            window.location.replace('login.html');
+        }
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Eventos - Beco Underground</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #1a1a1a; color: #fff; padding: 20px; }
+        .nav { text-align: right; margin-bottom: 20px; max-width: 600px; margin: 0 auto; }
+        .nav a { color: #ff4d4d; text-decoration: none; margin-right: 15px; font-weight: bold; }
+        .card { background-color: #333; padding: 20px; border-radius: 8px; max-width: 600px; margin: 0 auto 20px; }
+        h1, h2 { color: #ff4d4d; }
+        input, select { width: 90%; padding: 10px; margin-bottom: 10px; border-radius: 4px; border: none; }
+        button { background-color: #ff4d4d; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .msg { font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="index.html">← Voltar ao Dashboard</a>
+    </div>
+
+    <div class="card">
+        <h2>Criar Novo Evento</h2>
+        <form id="form-evento">
+            <input type="text" id="nome-evento" placeholder="Nome do Evento (ex: Sábado Maldito II)" required>
+            <input type="date" id="data-evento" required>
+            <input type="text" id="local-evento" placeholder="Local (ex: Beco Underground)" required>
+            <button type="submit">Cadastrar Evento</button>
+        </form>
+        <p id="msg-evento" class="msg"></p>
+    </div>
+
+    <div class="card">
+        <h2>Montar Line-up (Vincular Banda a Evento)</h2>
+        <form id="form-lineup">
+            <select id="select-evento" required>
+                <option value="">Selecione o Evento...</option>
+            </select>
+            
+            <select id="select-banda" required>
+                <option value="">Selecione a Banda...</option>
+            </select>
+
+            <input type="time" id="horario-show" required>
+            <input type="number" id="cache-negociado" placeholder="Cachê Negociado (Deixe em branco para usar o base)" step="0.01">
+            
+            <button type="submit">Adicionar ao Line-up</button>
+        </form>
+        <p id="msg-lineup" class="msg"></p>
+    </div>
+
+    <script>
+        const API_URL = 'https://api-beco-underground.onrender.com';
+        const token = localStorage.getItem('token_beco');
+
+        // Função para carregar as listas nos <select>
+        async function carregarListas() {
+            try {
+                // Busca eventos e bandas (Rotas GET são públicas)
+                const resEventos = await fetch(`${API_URL}/eventos`);
+                const eventos = await resEventos.json();
+                
+                const resBandas = await fetch(`${API_URL}/bandas`);
+                const bandas = await resBandas.json();
+
+                // Preenche o select de Eventos
+                const selectEvento = document.getElementById('select-evento');
+                eventos.forEach(ev => {
+                    selectEvento.innerHTML += `<option value="${ev.id}">${ev.nome} (${ev.data.split('T')[0]})</option>`;
+                });
+
+                // Preenche o select de Bandas
+                const selectBanda = document.getElementById('select-banda');
+                bandas.forEach(b => {
+                    selectBanda.innerHTML += `<option value="${b.id}">${b.nome}</option>`;
+                });
+            } catch (erro) {
+                console.error("Erro ao carregar listas:", erro);
+            }
+        }
+
+        // Executa ao abrir a página
+        carregarListas();
+
+        // Salvar Novo Evento (POST protegido)
+        document.getElementById('form-evento').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const dados = {
+                nome: document.getElementById('nome-evento').value,
+                data: document.getElementById('data-evento').value,
+                local: document.getElementById('local-evento').value
+            };
+
+            const res = await fetch(`${API_URL}/eventos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(dados)
+            });
+
+            const msg = document.getElementById('msg-evento');
+            if (res.ok) {
+                msg.style.color = "#4CAF50";
+                msg.innerText = "Evento criado com sucesso!";
+                document.getElementById('form-evento').reset();
+                setTimeout(() => location.reload(), 1500); // Recarrega para atualizar a lista
+            } else {
+                msg.style.color = "#ff4d4d";
+                msg.innerText = "Erro ao criar evento.";
+            }
+        });
+
+        // Adicionar Banda ao Line-up (POST protegido)
+        document.getElementById('form-lineup').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const dados = {
+                evento_id: document.getElementById('select-evento').value,
+                banda_id: document.getElementById('select-banda').value,
+                horario: document.getElementById('horario-show').value,
+                cache_negociado: document.getElementById('cache-negociado').value || null
+            };
+
+            const res = await fetch(`${API_URL}/lineup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(dados)
+            });
+
+            const msg = document.getElementById('msg-lineup');
+            if (res.ok) {
+                msg.style.color = "#4CAF50";
+                msg.innerText = "Banda vinculada ao line-up!";
+                document.getElementById('form-lineup').reset();
+            } else {
+                msg.style.color = "#ff4d4d";
+                msg.innerText = "Erro ao vincular banda.";
+            }
+        });
+    </script>
+</body>
+</html>
