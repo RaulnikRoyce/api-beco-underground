@@ -167,6 +167,18 @@ app.delete('/bandas/:id', verificarToken, (req, res) => {
     });
 });
 
+// PUT: Protegido (Atualizar dados de uma banda)
+app.put('/bandas/:id', verificarToken, (req, res) => {
+    const { id } = req.params;
+    const { nome, genero, contato, cache_base } = req.body;
+    
+    const sql = 'UPDATE bandas SET nome = ?, genero = ?, contato = ?, cache_base = ? WHERE id = ?';
+    db.query(sql, [nome, genero, contato, cache_base, id], (err, result) => {
+        if (err) return res.status(500).json({ erro: 'Erro ao atualizar banda' });
+        res.json({ mensagem: 'Banda atualizada com sucesso!' });
+    });
+});
+
 // ==========================================
 // ROTAS DE LINE-UP
 // ==========================================
@@ -197,6 +209,29 @@ app.post('/lineup', verificarToken, (req, res) => {
     db.query(sql, [evento_id, banda_id, horario, cacheFinal], (err, result) => {
         if (err) return res.status(500).send(err);
         res.status(201).send({ message: 'Artista adicionado ao line-up!', id: result.insertId });
+    });
+});
+
+// PUT: Protegido (Atualizar horário ou cachê de uma banda no evento)
+app.put('/lineup/:id', verificarToken, (req, res) => {
+    const { id } = req.params;
+    const { horario, cache_negociado } = req.body;
+    
+    const sql = 'UPDATE lineup SET horario = ?, cache_negociado = ? WHERE id = ?';
+    db.query(sql, [horario, cache_negociado, id], (err, result) => {
+        if (err) return res.status(500).json({ erro: 'Erro ao atualizar line-up' });
+        res.json({ mensagem: 'Line-up atualizado com sucesso!' });
+    });
+});
+
+// DELETE: Protegido (Remover uma banda do evento)
+app.delete('/lineup/:id', verificarToken, (req, res) => {
+    const { id } = req.params;
+    
+    const sql = 'DELETE FROM lineup WHERE id = ?';
+    db.query(sql, [id], (err, result) => {
+        if (err) return res.status(500).json({ erro: 'Erro ao remover do line-up' });
+        res.json({ mensagem: 'Atração removida do line-up!' });
     });
 });
 

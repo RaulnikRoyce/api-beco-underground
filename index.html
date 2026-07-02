@@ -1,21 +1,21 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <script>
-    // Verifica se o usuário tem o "crachá" salvo no navegador
-    const tokenAutorizacao = localStorage.getItem('token_beco');
-    
-    // Se não tiver o crachá, redireciona para o login imediatamente
-    if (!tokenAutorizacao) {
-        window.location.replace('login.html');
-    }
+    <script>
+        // Verifica se o usuário tem o "crachá" salvo no navegador
+        const tokenAutorizacao = localStorage.getItem('token_beco');
+        
+        // Se não tiver o crachá, redireciona para o login imediatamente
+        if (!tokenAutorizacao) {
+            window.location.replace('login.html');
+        }
 
-    // Função para sair do sistema (rasgar o crachá)
-    function sairDoSistema() {
-        localStorage.removeItem('token_beco');
-        window.location.replace('login.html');
-    }
-</script>
+        // Função para sair do sistema (rasgar o crachá)
+        function sairDoSistema() {
+            localStorage.removeItem('token_beco');
+            window.location.replace('login.html');
+        }
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel - Beco Underground</title>
@@ -91,7 +91,8 @@
 
         // Chama a função assim que a página abrir
         carregarDashboard();
-// Captura o formulário quando o usuário clica em Salvar
+
+        // Captura o formulário quando o usuário clica em Salvar
         document.getElementById('form-banda').addEventListener('submit', async function(evento) {
             evento.preventDefault(); // Evita que a página recarregue
 
@@ -104,10 +105,16 @@
             };
 
             try {
+                // Pegamos o crachá salvo no navegador
+                const token = localStorage.getItem('token_beco');
+
                 // Envia os dados via POST para a sua API oficial
                 const resposta = await fetch('https://api-beco-underground.onrender.com/bandas', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` // <--- ENVIANDO O CRACHÁ AQUI!
+                    },
                     body: JSON.stringify(novaBanda)
                 });
 
@@ -115,7 +122,7 @@
                     document.getElementById('mensagem-form').innerText = "Banda cadastrada com sucesso!";
                     document.getElementById('form-banda').reset(); // Limpa os campos
                 } else {
-                    document.getElementById('mensagem-form').innerText = "Erro ao cadastrar. Verifique os dados.";
+                    document.getElementById('mensagem-form').innerText = "Erro ao cadastrar. Verifique os dados ou seu login.";
                     document.getElementById('mensagem-form').style.color = "red";
                 }
             } catch (erro) {
