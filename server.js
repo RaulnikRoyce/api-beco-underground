@@ -31,6 +31,38 @@ db.connect((err) => {
     console.log('Banco de dados conectado!');
 });
 
+// 1. Permite que a API entenda dados enviados no formato JSON
+app.use(express.json());
+
+// 2. ROTA GET: Lista todas as bandas cadastradas
+app.get('/bandas', (req, res) => {
+  const sql = 'SELECT * FROM bandas';
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ erro: 'Erro ao buscar bandas' });
+    }
+    res.json(results);
+  });
+});
+
+// 3. ROTA POST: Cadastra uma nova banda
+app.post('/bandas', (req, res) => {
+  const { nome, genero, contato, cache_base } = req.body;
+  
+  const sql = 'INSERT INTO bandas (nome, genero, contato, cache_base) VALUES (?, ?, ?, ?)';
+  db.query(sql, [nome, genero, contato, cache_base], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ erro: 'Erro ao cadastrar banda' });
+    }
+    res.status(201).json({ 
+      mensagem: 'Banda cadastrada com sucesso!', 
+      id: result.insertId 
+    });
+  });
+});
+
 // --- ROTAS DO SISTEMA ---
 
 // Rota de Teste
