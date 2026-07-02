@@ -1,12 +1,3 @@
-// server.js
-require('dotenv').config(); // Carrega as variáveis de ambiente
-const app = require('./src/app'); // Importa a configuração do app que criamos
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
-});
-
 // src/middlewares/auth.middleware.js
 const jwt = require('jsonwebtoken');
 
