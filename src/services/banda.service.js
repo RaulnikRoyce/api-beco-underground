@@ -1,21 +1,12 @@
-const db = require('../database/db');
+// src/services/banda.service.js
+const bandaRepository = require('../repositories/banda.repository');
 
-exports.buscarTodas = () => {
-    return new Promise((resolve, reject) => {
-        db.query('SELECT * FROM bandas', (err, results) => {
-            if (err) return reject(err);
-            resolve(results);
-        });
-    });
+exports.listarBandas = async () => {
+    // Aqui no futuro podemos adicionar regras (ex: só listar bandas ativas)
+    return await bandaRepository.buscarTodas();
 };
 
-exports.criar = (dados) => {
-    return new Promise((resolve, reject) => {
-        const { nome, genero, contato, cache_base } = dados;
-        db.query('INSERT INTO bandas (nome, genero, contato, cache_base) VALUES (?, ?, ?, ?)', 
-        [nome, genero, contato, cache_base], (err, results) => {
-            if (err) return reject(err);
-            resolve({ id: results.insertId, ...dados });
-        });
-    });
+exports.adicionarBanda = async (dadosBanda) => {
+    // Aqui no futuro entrará a validação do Zod (ex: impedir cachê negativo)
+    return await bandaRepository.salvar(dadosBanda);
 };

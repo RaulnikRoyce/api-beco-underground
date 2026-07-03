@@ -1,3 +1,4 @@
+// src/controllers/dashboard.controller.js
 const dashboardService = require('../services/dashboard.service');
 
 exports.carregarDashboard = async (req, res) => {
@@ -5,6 +6,7 @@ exports.carregarDashboard = async (req, res) => {
         const dados = await dashboardService.obterResumo(req.params.evento_id);
         res.json(dados);
     } catch (error) {
-        res.status(500).json({ erro: 'Erro ao carregar os dados do dashboard' });
+        console.error("Erro ao carregar os dados do dashboard:", error);
+        res.status(500).json({ erro: 'Erro interno ao processar o painel' });
     }
 };

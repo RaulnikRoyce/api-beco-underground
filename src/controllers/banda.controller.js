@@ -1,19 +1,23 @@
+// src/controllers/banda.controller.js
 const bandaService = require('../services/banda.service');
 
 exports.listarBandas = async (req, res) => {
     try {
-        const bandas = await bandaService.buscarTodas();
+        const bandas = await bandaService.listarBandas();
         res.json(bandas);
     } catch (error) {
-        res.status(500).json({ erro: 'Erro ao buscar bandas' });
+        console.error("Erro ao listar bandas:", error);
+        res.status(500).json({ erro: 'Erro interno ao buscar as bandas' });
     }
 };
 
-exports.cadastrarBanda = async (req, res) => {
+exports.adicionarBanda = async (req, res) => {
     try {
-        const novaBanda = await bandaService.criar(req.body);
-        res.status(201).json({ mensagem: 'Banda cadastrada com sucesso!', ...novaBanda });
+        // Envia os dados validados pelo Zod para o Service salvar
+        const novaBanda = await bandaService.adicionarBanda(req.body);
+        res.status(201).json({ mensagem: 'Banda adicionada com sucesso!', banda: novaBanda });
     } catch (error) {
-        res.status(500).json({ erro: 'Erro ao cadastrar banda' });
+        console.error("Erro ao adicionar banda:", error);
+        res.status(500).json({ erro: 'Erro interno ao salvar a banda' });
     }
 };
