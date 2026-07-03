@@ -10,6 +10,16 @@ exports.buscarTodas = () => {
     });
 };
 
+// --- A PEÇA QUE FALTAVA ---
+exports.buscarPorId = (id) => {
+    return new Promise((resolve, reject) => {
+        db.query('SELECT * FROM bandas WHERE id = ?', [id], (err, resultados) => {
+            if (err) return reject(err);
+            resolve(resultados[0]); // Retorna apenas a banda específica
+        });
+    });
+};
+
 exports.salvar = (dados) => {
     return new Promise((resolve, reject) => {
         const { nome, genero, contato, cache_base } = dados;

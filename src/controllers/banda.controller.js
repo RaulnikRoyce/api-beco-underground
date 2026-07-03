@@ -11,13 +11,24 @@ exports.listarBandas = async (req, res) => {
     }
 };
 
+// É ESTA A FUNÇÃO QUE O EXPRESS ESTAVA SENTINDO FALTA:
+exports.obterBandaPorId = async (req, res) => {
+    try {
+        const banda = await bandaService.obterBandaPorId(req.params.id);
+        if (!banda) return res.status(404).json({ erro: 'Banda não encontrada' });
+        res.json(banda);
+    } catch (error) {
+        console.error("Erro ao buscar a banda:", error);
+        res.status(500).json({ erro: 'Erro interno ao buscar a banda' });
+    }
+};
+
 exports.adicionarBanda = async (req, res) => {
     try {
-        // Envia os dados validados pelo Zod para o Service salvar
         const novaBanda = await bandaService.adicionarBanda(req.body);
-        res.status(201).json({ mensagem: 'Banda adicionada com sucesso!', banda: novaBanda });
+        res.status(201).json({ mensagem: 'Banda cadastrada com sucesso!', banda: novaBanda });
     } catch (error) {
-        console.error("Erro ao adicionar banda:", error);
-        res.status(500).json({ erro: 'Erro interno ao salvar a banda' });
+        console.error("Erro ao cadastrar banda:", error);
+        res.status(500).json({ erro: 'Erro interno ao cadastrar banda' });
     }
 };

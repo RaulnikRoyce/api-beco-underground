@@ -2,14 +2,18 @@
 const express = require('express');
 const router = express.Router();
 const bandaController = require('../controllers/banda.controller');
-const { verificarToken } = require('../middlewares/auth.middleware'); // Correção aqui!
-const { validarSchema } = require('../middlewares/validador'); 
-const { bandaSchema } = require('../schemas/banda.schema');
+const { verificarToken, verificarPerfil } = require('../middlewares/auth.middleware');
+const { validarSchema } = require('../middlewares/validador');
 
-// Rota de listagem não precisa de validação de corpo, só do crachá
-router.get('/', verificarToken, bandaController.listarBandas); // Correção aqui!
+// Importação do schema do Zod (garanta que o nome do arquivo bate com o que você criou)
+const { bandaSchema } = require('../schemas/banda.schema'); 
 
-// Rota de criação agora passa pelo validador antes de chegar no controller!
-router.post('/', verificarToken, validarSchema(bandaSchema), bandaController.adicionarBanda); // Correção aqui!
+// Leitura: Qualquer um com token logado pode ver as bandas
+router.get('/', verificarToken, bandaController.listarBandas);
+router.get('/:id', verificarToken, bandaController.obterBandaPorId);
 
+// Criação: Exige Token, exige validação do Zod, E exige ser 'admin'
+router.post('/', verificarToken, verificarPerfil(['admin']), validarSchema(bandaSchema), bandaController.adicionarBanda);
+
+// A FALTA DESTA LINHA ABAIXO É O QUE CAUSA O ERRO NO APP.JS:
 module.exports = router;

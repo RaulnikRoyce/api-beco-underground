@@ -19,3 +19,21 @@ exports.verificarToken = (req, res, next) => {
         next(); 
     });
 };
+
+// src/middlewares/auth.middleware.js
+
+// ... (seu código de verificarToken continua intocado lá em cima) ...
+
+exports.verificarPerfil = (perfisPermitidos) => {
+    return (req, res, next) => {
+        const perfilUsuario = req.usuario.perfil;
+
+        if (!perfisPermitidos.includes(perfilUsuario)) {
+            return res.status(403).json({ 
+                erro: 'Acesso Negado: Você não tem permissão para visualizar o financeiro.' 
+            });
+        }
+        
+        next();
+    };
+};
