@@ -5,7 +5,11 @@
   "description": "API REST do sistema Beco Underground",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "jest --runInBand"
+  },
+  "devDependencies": {
+    "jest": "^30.0.0"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
