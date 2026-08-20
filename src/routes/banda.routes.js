@@ -7,6 +7,18 @@ const { bandaSchema } = require('../schemas/banda.schema');
 
 router.get('/', verificarToken, bandaController.listarBandas);
 router.get('/:id', verificarToken, bandaController.obterBandaPorId);
-router.post('/', verificarToken, verificarPerfil(['admin']), validarSchema(bandaSchema), bandaController.adicionarBanda);
+router.post(
+    '/',
+    verificarToken,
+    verificarPerfil(['admin']),
+    validarSchema(bandaSchema),
+    bandaController.adicionarBanda
+);
+router.delete(
+    '/:id',
+    verificarToken,
+    verificarPerfil(['admin']),
+    bandaController.removerBanda
+);
 
 module.exports = router;

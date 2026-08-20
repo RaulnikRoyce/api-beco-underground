@@ -2,11 +2,16 @@
   "name": "api-beco-underground",
   "version": "1.0.0",
   "private": true,
-  "description": "API REST do sistema Beco Underground",
+  "description": "API REST do sistema Beco Underground — gestão de eventos, bandas e line-up",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "dev": "node --watch server.js",
+    "test": "node --test",
+    "seed": "node scripts/seed-admin.js"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

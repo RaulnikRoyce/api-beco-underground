@@ -1,9 +1,13 @@
-// src/schemas/banda.schema.js
 const { z } = require('zod');
 
 exports.bandaSchema = z.object({
-    nome: z.string().min(2, "O nome da banda deve ter pelo menos 2 caracteres"),
-    genero: z.string().optional(),
-    contato: z.string().email("O e-mail de contato é inválido").optional().or(z.literal('')),
-    cache_base: z.number().nonnegative("O cachê não pode ser negativo")
+    nome: z.string().trim().min(2, 'O nome da banda deve ter pelo menos 2 caracteres').max(150),
+    genero: z.string().trim().max(100).optional().or(z.literal('')),
+    contato: z
+        .string()
+        .trim()
+        .max(254)
+        .optional()
+        .or(z.literal('')),
+    cache_base: z.coerce.number().nonnegative('O cachê não pode ser negativo')
 });

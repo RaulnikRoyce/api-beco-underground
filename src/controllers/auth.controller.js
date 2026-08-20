@@ -26,7 +26,11 @@ exports.login = async (req, res) => {
             { expiresIn: '8h' }
         );
 
-        return res.json({ mensagem: 'Login realizado com sucesso.', token });
+        return res.json({
+            mensagem: 'Login realizado com sucesso.',
+            token,
+            perfil: usuario.perfil
+        });
     } catch (error) {
         console.error('Erro no login:', error);
         return res.status(500).json({ erro: 'Erro interno do servidor.' });
@@ -39,6 +43,9 @@ exports.registrar = async (req, res) => {
         return res.status(201).json({ mensagem: 'Usuário cadastrado com sucesso.' });
     } catch (error) {
         console.error('Erro ao cadastrar usuário:', error);
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ erro: 'E-mail já cadastrado.' });
+        }
         return res.status(500).json({ erro: 'Erro interno do servidor.' });
     }
 };
