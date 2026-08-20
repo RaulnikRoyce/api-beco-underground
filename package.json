@@ -6,10 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "jest --runInBand"
-  },
-  "devDependencies": {
-    "jest": "^30.0.0"
+    "test": "node --test"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
