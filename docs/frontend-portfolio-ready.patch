@@ -1,26 +1,3 @@
-From e9fb78999ca910d9375075b1aaa3879f7b556adc Mon Sep 17 00:00:00 2001
-From: Cursor Agent <cursoragent@cursor.com>
-Date: Thu, 20 Aug 2026 17:27:43 +0000
-Subject: [PATCH] feat(frontend): login JWT, API URL e alinhamento com a API
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-Adiciona tela de login com token_beco, usa VITE_API_URL, exige horário
-no line-up, envia cache_base como número, remove HelloWorld e documenta
-o setup no README.
----
- .env.example                  |   1 +
- README.md                     |  47 +++-
- index.html                    |   4 +-
- src/App.vue                   | 421 +++++++++++++++++++++++-----------
- src/api.js                    |  19 +-
- src/components/HelloWorld.vue |  95 --------
- src/main.js                   |   4 +-
- 7 files changed, 353 insertions(+), 238 deletions(-)
- create mode 100644 .env.example
- delete mode 100644 src/components/HelloWorld.vue
-
 diff --git a/.env.example b/.env.example
 new file mode 100644
 index 0000000..5317fce
@@ -29,28 +6,29 @@ index 0000000..5317fce
 @@ -0,0 +1 @@
 +VITE_API_URL=http://localhost:3000
 diff --git a/README.md b/README.md
-index 1511959..4166b7b 100644
+index 1511959..740ead6 100644
 --- a/README.md
 +++ b/README.md
-@@ -1,5 +1,46 @@
+@@ -1,5 +1,37 @@
 -# Vue 3 + Vite
 +# Frontend Beco Underground
  
 -This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
-+Painel Vue 3 para gestão de eventos, bandas e line-up de palco. Consome a [API Beco Underground](https://github.com/RaulnikRoyce/api-beco-underground).
++Painel Vue 3 para gestão de **eventos**, **bandas** e **line-up de palco** da casa Beco Underground.
  
 -Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
++API: [api-beco-underground](https://github.com/RaulnikRoyce/api-beco-underground)
++
 +## Stack
 +
 +- Vue 3 + Vite
 +- Tailwind CSS
-+- Axios (`token_beco` no `localStorage`)
++- Axios (`VITE_API_URL`)
 +
 +## Como rodar
 +
-+1. Suba a API (Docker MySQL + `npm start` no repositório da API).
-+2. Crie o admin com `npm run seed` na API.
-+3. Neste frontend:
++1. Suba a API (Docker MySQL + `npm start` + `npm run seed`).
++2. Neste repositório:
 +
 +```bash
 +cp .env.example .env
@@ -58,30 +36,20 @@ index 1511959..4166b7b 100644
 +npm run dev
 +```
 +
-+Abra `http://localhost:5173`, faça login com `admin@beco.local` / `Admin123!` (ou as variáveis do seed).
-+
-+## Variáveis de ambiente
-+
-+| Variável | Descrição | Padrão |
-+|----------|-----------|--------|
-+| `VITE_API_URL` | URL base da API | `http://localhost:3000` |
++Abra `http://localhost:5173`, faça login com o admin seedado (`admin@beco.local` / `Admin123!` por padrão).
 +
 +## Funcionalidades
 +
-+- Login JWT (token em `localStorage` como `token_beco`)
-+- CRUD de eventos (criar / listar / excluir)
-+- Cadastro e exclusão de bandas
-+- Escalação no line-up com **horário obrigatório**
++- Login JWT (guarda `token` e `perfil`)
++- CRUD de eventos e bandas (ações mutáveis exigem admin na API)
++- Escalação no line-up com horário `HH:MM` e soma de cachês
 +- Impressão do cronograma de palco
-+- Soma de cachês por evento
 +
-+## Scripts
++## Variáveis
 +
-+```bash
-+npm run dev      # desenvolvimento
-+npm run build    # build de produção
-+npm run preview  # preview do build
-+```
++| Variável | Descrição | Padrão |
++|----------|-----------|--------|
++| `VITE_API_URL` | Base URL da API | `http://localhost:3000` |
 diff --git a/index.html b/index.html
 index 66d0195..df9c6f1 100644
 --- a/index.html
@@ -100,10 +68,10 @@ index 66d0195..df9c6f1 100644
    <body>
      <div id="app"></div>
 diff --git a/src/App.vue b/src/App.vue
-index adaa136..f216dd0 100644
+index adaa136..0e76e73 100644
 --- a/src/App.vue
 +++ b/src/App.vue
-@@ -1,93 +1,164 @@
+@@ -1,93 +1,257 @@
  <template>
 -  <div class="min-h-screen bg-zinc-950 text-zinc-100 p-8 print:bg-white print:text-black print:p-0">
 -    
@@ -125,42 +93,48 @@ index adaa136..f216dd0 100644
 -              <input v-model="novoEvento.data" type="date" class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600 w-1/2">
 -              <input v-model="novoEvento.local" placeholder="Local" class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600 w-1/2">
 +  <div class="min-h-screen bg-zinc-950 text-zinc-100 print:bg-white print:text-black">
-+    <!-- Login -->
-+    <div v-if="!autenticado" class="min-h-screen flex items-center justify-center p-6">
-+      <section class="w-full max-w-md border border-zinc-800 bg-zinc-900 p-8 shadow-xl">
-+        <h1 class="text-3xl font-black uppercase tracking-tighter text-red-600 mb-1">Beco Underground</h1>
-+        <p class="text-zinc-500 uppercase tracking-widest text-xs mb-8">Acesso ao painel</p>
++    <div
++      v-if="!autenticado"
++      class="min-h-screen flex items-center justify-center p-6 bg-[radial-gradient(ellipse_at_top,_#3f0d12_0%,_#09090b_55%)]"
++    >
++      <form
++        class="w-full max-w-md border border-zinc-800 bg-zinc-950/80 p-8 shadow-2xl backdrop-blur"
++        @submit.prevent="fazerLogin"
++      >
++        <p class="text-red-600 font-black uppercase tracking-[0.2em] text-sm mb-2">Beco Underground</p>
++        <h1 class="text-3xl font-black uppercase tracking-tight mb-2">Entrar no painel</h1>
++        <p class="text-zinc-500 text-sm mb-8">Use o admin seedado na API para gerenciar eventos e line-up.</p>
 +
-+        <form class="flex flex-col gap-3" @submit.prevent="fazerLogin">
-+          <input
-+            v-model="loginForm.email"
-+            type="email"
-+            required
-+            autocomplete="username"
-+            placeholder="E-mail"
-+            class="bg-zinc-950 border border-zinc-700 p-3 outline-none focus:border-red-600"
-+          >
-+          <input
-+            v-model="loginForm.senha"
-+            type="password"
-+            required
-+            autocomplete="current-password"
-+            placeholder="Senha"
-+            class="bg-zinc-950 border border-zinc-700 p-3 outline-none focus:border-red-600"
-+          >
-+          <p v-if="loginErro" class="text-red-500 text-sm">{{ loginErro }}</p>
-+          <button
-+            type="submit"
-+            :disabled="loginCarregando"
-+            class="bg-red-600 px-6 py-3 font-bold hover:bg-red-700 transition-colors mt-2 uppercase text-sm disabled:opacity-60"
-+          >
-+            {{ loginCarregando ? 'Entrando…' : 'Entrar' }}
-+          </button>
-+        </form>
-+      </section>
++        <label class="block text-xs uppercase tracking-widest text-zinc-500 mb-2">E-mail</label>
++        <input
++          v-model="loginForm.email"
++          type="email"
++          required
++          autocomplete="username"
++          class="w-full bg-zinc-900 border border-zinc-700 p-3 mb-4 outline-none focus:border-red-600"
++        />
++
++        <label class="block text-xs uppercase tracking-widest text-zinc-500 mb-2">Senha</label>
++        <input
++          v-model="loginForm.senha"
++          type="password"
++          required
++          autocomplete="current-password"
++          class="w-full bg-zinc-900 border border-zinc-700 p-3 mb-4 outline-none focus:border-red-600"
++        />
++
++        <p v-if="loginErro" class="text-red-500 text-sm mb-4">{{ loginErro }}</p>
++
++        <button
++          type="submit"
++          class="w-full bg-red-600 px-6 py-3 font-bold hover:bg-red-700 transition-colors uppercase text-sm disabled:opacity-60"
++          :disabled="loginCarregando"
++        >
++          {{ loginCarregando ? 'Entrando…' : 'Entrar' }}
++        </button>
++      </form>
 +    </div>
 +
-+    <!-- Painel -->
 +    <div v-else class="p-8 print:p-0">
 +      <header class="mb-10 border-b border-zinc-800 pb-6 print:hidden flex flex-wrap items-end justify-between gap-4">
 +        <div>
@@ -168,10 +142,12 @@ index adaa136..f216dd0 100644
 +          <p class="text-zinc-500 uppercase tracking-widest text-sm">Painel de Gestão Integrado</p>
 +        </div>
 +        <div class="flex items-center gap-4 text-sm">
-+          <span class="text-zinc-500 uppercase tracking-wider">{{ perfil || 'usuário' }}</span>
++          <span class="text-zinc-500 uppercase tracking-wider">
++            Perfil: <strong class="text-zinc-200">{{ perfil || '—' }}</strong>
++          </span>
 +          <button
 +            type="button"
-+            class="border border-zinc-700 px-3 py-1 uppercase text-xs font-bold hover:border-red-600 hover:text-red-500 transition-colors"
++            class="border border-zinc-700 px-3 py-1.5 uppercase text-xs font-bold hover:border-red-600 hover:text-red-500 transition-colors"
 +            @click="sair"
 +          >
 +            Sair
@@ -181,17 +157,35 @@ index adaa136..f216dd0 100644
 +
 +      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 print:block">
 +        <main class="grid gap-6 content-start print:block">
-+          <h2 class="text-2xl font-bold border-b border-zinc-800 pb-2 text-zinc-100 uppercase tracking-wide print:hidden">Eventos</h2>
++          <h2 class="text-2xl font-bold border-b border-zinc-800 pb-2 text-zinc-100 uppercase tracking-wide print:hidden">
++            Eventos
++          </h2>
 +
 +          <section class="bg-zinc-900 border border-zinc-800 p-6 shadow-xl print:hidden">
 +            <h3 class="text-xs font-bold mb-4 text-red-500 uppercase tracking-widest">Criar Novo Evento</h3>
 +            <div class="flex flex-col gap-3">
-+              <input v-model="novoEvento.nome" placeholder="Nome do Evento" class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600">
++              <input
++                v-model="novoEvento.nome"
++                placeholder="Nome do Evento"
++                class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600"
++              />
 +              <div class="flex gap-3">
-+                <input v-model="novoEvento.data" type="date" class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600 w-1/2">
-+                <input v-model="novoEvento.local" placeholder="Local" class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600 w-1/2">
++                <input
++                  v-model="novoEvento.data"
++                  type="date"
++                  class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600 w-1/2"
++                />
++                <input
++                  v-model="novoEvento.local"
++                  placeholder="Local"
++                  class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600 w-1/2"
++                />
 +              </div>
-+              <button type="button" class="bg-red-600 px-6 py-2 font-bold hover:bg-red-700 transition-colors mt-2 uppercase text-sm" @click="adicionarEvento">
++              <button
++                type="button"
++                class="bg-red-600 px-6 py-2 font-bold hover:bg-red-700 transition-colors mt-2 uppercase text-sm"
++                @click="adicionarEvento"
++              >
 +                Cadastrar Evento
 +              </button>
              </div>
@@ -239,10 +233,18 @@ index adaa136..f216dd0 100644
 +            class="bg-zinc-900 border border-zinc-800 p-6 shadow-xl relative group print:bg-white print:border-none print:shadow-none print:p-0 print:page-break-inside-avoid print:mb-10"
 +          >
 +            <div class="absolute top-6 right-6 flex gap-4 print:hidden">
-+              <button type="button" class="text-zinc-400 hover:text-white transition-colors uppercase text-xs font-bold" @click="imprimirCronograma">
++              <button
++                type="button"
++                class="text-zinc-400 hover:text-white transition-colors uppercase text-xs font-bold"
++                @click="imprimirCronograma"
++              >
 +                Imprimir
 +              </button>
-+              <button type="button" class="text-zinc-600 hover:text-red-500 transition-colors uppercase text-xs font-bold" @click="deletarEvento(evento.id)">
++              <button
++                type="button"
++                class="text-zinc-600 hover:text-red-500 transition-colors uppercase text-xs font-bold"
++                @click="deletarEvento(evento.id)"
++              >
 +                Excluir
 +              </button>
              </div>
@@ -262,13 +264,17 @@ index adaa136..f216dd0 100644
 -              <input v-model="novaBanda.cache_base" type="number" placeholder="Cachê (R$)" class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600 w-1/2">
 -              <input v-model="novaBanda.contato" placeholder="Contato" class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600 w-1/2">
 +
-+            <h2 class="text-xl font-bold mb-1 w-3/4 print:text-3xl print:text-black print:mb-2">{{ evento.nome }}</h2>
++            <h2 class="text-xl font-bold mb-1 w-3/4 print:text-3xl print:text-black print:mb-2">
++              {{ evento.nome }}
++            </h2>
 +            <p class="text-sm text-zinc-400 mb-6 print:text-black print:font-bold print:text-lg">
-+              {{ formatarData(evento.data) }} · {{ evento.local }}
++              {{ formatarData(evento.data) }} | {{ evento.local }}
 +            </p>
 +
 +            <div class="border-t border-zinc-800 pt-4 print:border-black print:pt-6">
-+              <h4 class="text-xs font-bold text-red-500 uppercase tracking-widest mb-3 flex justify-between print:text-black print:text-lg print:border-b print:border-black print:pb-2">
++              <h4
++                class="text-xs font-bold text-red-500 uppercase tracking-widest mb-3 flex justify-between print:text-black print:text-lg print:border-b print:border-black print:pb-2"
++              >
 +                Cronograma de Palco
 +                <span class="text-zinc-500 print:hidden">Custo Total: R$ {{ calcularCusto(evento.id) }}</span>
 +              </h4>
@@ -281,22 +287,39 @@ index adaa136..f216dd0 100644
 +                >
 +                  <span class="print:text-black print:text-lg">
 +                    <strong class="text-zinc-300 print:text-black">{{ item.horario || '--:--' }}</strong>
-+                    | {{ item.nome || item.banda }}
++                    | {{ item.nome }}
 +                  </span>
 +                  <span class="text-emerald-500 font-mono text-xs print:hidden">R$ {{ item.cache }}</span>
 +                </li>
-+                <li v-if="!lineups[evento.id] || lineups[evento.id].length === 0" class="text-zinc-600 text-xs italic">
++                <li
++                  v-if="!lineups[evento.id] || lineups[evento.id].length === 0"
++                  class="text-zinc-600 text-xs italic"
++                >
 +                  Nenhum artista escalado.
 +                </li>
 +              </ul>
 +
 +              <div class="flex gap-2 print:hidden">
-+                <select v-model="evento.novaBandaId" class="bg-zinc-950 border border-zinc-700 p-2 text-sm outline-none focus:border-red-600 flex-1 text-zinc-300">
++                <select
++                  v-model="evento.novaBandaId"
++                  class="bg-zinc-950 border border-zinc-700 p-2 text-sm outline-none focus:border-red-600 flex-1 text-zinc-300"
++                >
 +                  <option value="" disabled>Selecionar Artista...</option>
-+                  <option v-for="banda in bandas" :key="banda.id" :value="banda.id">{{ banda.nome }}</option>
++                  <option v-for="banda in bandas" :key="banda.id" :value="banda.id">
++                    {{ banda.nome }}
++                  </option>
 +                </select>
-+                <input v-model="evento.novoHorario" type="time" required class="bg-zinc-950 border border-zinc-700 p-2 text-sm outline-none focus:border-red-600 text-zinc-300">
-+                <button type="button" class="bg-zinc-800 hover:bg-red-600 text-white px-3 py-2 text-xs font-bold transition-colors uppercase" @click="adicionarAoLineup(evento)">
++                <input
++                  v-model="evento.novoHorario"
++                  type="time"
++                  required
++                  class="bg-zinc-950 border border-zinc-700 p-2 text-sm outline-none focus:border-red-600 text-zinc-300"
++                />
++                <button
++                  type="button"
++                  class="bg-zinc-800 hover:bg-red-600 text-white px-3 py-2 text-xs font-bold transition-colors uppercase"
++                  @click="adicionarAoLineup(evento)"
++                >
 +                  Add
 +                </button>
 +              </div>
@@ -317,30 +340,68 @@ index adaa136..f216dd0 100644
 -        </div>
 -      </main>
 +        <main class="grid gap-6 content-start print:hidden">
-+          <h2 class="text-2xl font-bold border-b border-zinc-800 pb-2 text-zinc-100 uppercase tracking-wide">Bandas</h2>
- 
++          <h2 class="text-2xl font-bold border-b border-zinc-800 pb-2 text-zinc-100 uppercase tracking-wide">
++            Bandas
++          </h2>
++
 +          <section class="bg-zinc-900 border border-zinc-800 p-6 shadow-xl">
 +            <h3 class="text-xs font-bold mb-4 text-red-500 uppercase tracking-widest">Cadastrar Artista</h3>
 +            <div class="flex flex-col gap-3">
-+              <input v-model="novaBanda.nome" placeholder="Nome da Banda / Artista" class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600">
-+              <input v-model="novaBanda.genero" placeholder="Gênero" class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600">
++              <input
++                v-model="novaBanda.nome"
++                placeholder="Nome da Banda / Artista"
++                class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600"
++              />
++              <input
++                v-model="novaBanda.genero"
++                placeholder="Gênero"
++                class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600"
++              />
 +              <div class="flex gap-3">
-+                <input v-model="novaBanda.cache_base" type="number" min="0" step="0.01" placeholder="Cachê (R$)" class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600 w-1/2">
-+                <input v-model="novaBanda.contato" placeholder="Contato" class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600 w-1/2">
++                <input
++                  v-model="novaBanda.cache_base"
++                  type="number"
++                  min="0"
++                  step="0.01"
++                  placeholder="Cachê (R$)"
++                  class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600 w-1/2"
++                />
++                <input
++                  v-model="novaBanda.contato"
++                  placeholder="Contato"
++                  class="bg-zinc-950 border border-zinc-700 p-2 outline-none focus:border-red-600 w-1/2"
++                />
 +              </div>
-+              <button type="button" class="bg-red-600 px-6 py-2 font-bold hover:bg-red-700 transition-colors mt-2 uppercase text-sm" @click="adicionarBanda">
++              <button
++                type="button"
++                class="bg-red-600 px-6 py-2 font-bold hover:bg-red-700 transition-colors mt-2 uppercase text-sm"
++                @click="adicionarBanda"
++              >
 +                Cadastrar Artista
 +              </button>
 +            </div>
 +          </section>
-+
-+          <div v-for="banda in bandas" :key="banda.id" class="bg-zinc-900 border border-zinc-800 p-6 relative group shadow-xl">
-+            <button type="button" class="absolute top-6 right-6 text-zinc-600 hover:text-red-500 transition-colors uppercase text-xs font-bold" @click="deletarBanda(banda.id)">
+ 
++          <div
++            v-for="banda in bandas"
++            :key="banda.id"
++            class="bg-zinc-900 border border-zinc-800 p-6 relative group shadow-xl"
++          >
++            <button
++              type="button"
++              class="absolute top-6 right-6 text-zinc-600 hover:text-red-500 transition-colors uppercase text-xs font-bold"
++              @click="deletarBanda(banda.id)"
++            >
 +              Excluir
 +            </button>
 +            <div class="flex items-start mb-2 w-5/6">
 +              <h2 class="text-xl font-bold mr-3">{{ banda.nome }}</h2>
-+              <span v-if="banda.genero" class="bg-zinc-800 text-zinc-400 text-[10px] px-2 py-1 uppercase font-bold tracking-wider rounded">{{ banda.genero }}</span>
++              <span
++                v-if="banda.genero"
++                class="bg-zinc-800 text-zinc-400 text-[10px] px-2 py-1 uppercase font-bold tracking-wider rounded"
++              >
++                {{ banda.genero }}
++              </span>
 +            </div>
 +            <p class="text-sm text-zinc-400 mb-1">{{ banda.contato || 'Sem contato' }}</p>
 +            <p class="text-sm text-emerald-500 font-mono font-bold">R$ {{ banda.cache_base }}</p>
@@ -350,12 +411,18 @@ index adaa136..f216dd0 100644
      </div>
    </div>
  </template>
-@@ -98,90 +169,174 @@ import api from './api';
+@@ -95,93 +259,165 @@
+ <script>
+ import api from './api';
+ 
++const TOKEN_KEY = 'token_beco';
++const PERFIL_KEY = 'perfil_beco';
++
  export default {
    data() {
      return {
-+      autenticado: Boolean(localStorage.getItem('token_beco')),
-+      perfil: localStorage.getItem('perfil_beco') || '',
++      autenticado: Boolean(localStorage.getItem(TOKEN_KEY)),
++      perfil: localStorage.getItem(PERFIL_KEY) || '',
 +      loginForm: { email: '', senha: '' },
 +      loginErro: '',
 +      loginCarregando: false,
@@ -370,70 +437,59 @@ index adaa136..f216dd0 100644
    mounted() {
 -    this.buscarEventos();
 -    this.buscarBandas();
-+    window.addEventListener('beco:unauthorized', this.aoUnauthorized);
++    window.addEventListener('beco:unauthorized', this.sair);
 +    if (this.autenticado) {
 +      this.carregarPainel();
 +    }
 +  },
 +  beforeUnmount() {
-+    window.removeEventListener('beco:unauthorized', this.aoUnauthorized);
++    window.removeEventListener('beco:unauthorized', this.sair);
    },
    methods: {
 -    // EVENTOS
-+    aoUnauthorized() {
++    async fazerLogin() {
++      this.loginErro = '';
++      this.loginCarregando = true;
++      try {
++        const { data } = await api.post('/auth/login', this.loginForm);
++        localStorage.setItem(TOKEN_KEY, data.token);
++        localStorage.setItem(PERFIL_KEY, data.perfil || '');
++        this.perfil = data.perfil || '';
++        this.autenticado = true;
++        this.loginForm.senha = '';
++        await this.carregarPainel();
++      } catch (err) {
++        this.loginErro = err.response?.data?.erro || 'Não foi possível entrar. Verifique e-mail e senha.';
++      } finally {
++        this.loginCarregando = false;
++      }
++    },
++    sair() {
++      localStorage.removeItem(TOKEN_KEY);
++      localStorage.removeItem(PERFIL_KEY);
 +      this.autenticado = false;
 +      this.perfil = '';
 +      this.eventos = [];
 +      this.bandas = [];
 +      this.lineups = {};
 +    },
-+    async fazerLogin() {
-+      this.loginErro = '';
-+      this.loginCarregando = true;
-+      try {
-+        const { data } = await api.post('/auth/login', {
-+          email: this.loginForm.email,
-+          senha: this.loginForm.senha
-+        });
-+        localStorage.setItem('token_beco', data.token);
-+        if (data.perfil) {
-+          localStorage.setItem('perfil_beco', data.perfil);
-+          this.perfil = data.perfil;
-+        }
-+        this.autenticado = true;
-+        this.loginForm = { email: '', senha: '' };
-+        await this.carregarPainel();
-+      } catch (err) {
-+        this.loginErro = err.response?.data?.erro || 'Falha no login. Verifique e-mail e senha.';
-+      } finally {
-+        this.loginCarregando = false;
-+      }
-+    },
-+    sair() {
-+      localStorage.removeItem('token_beco');
-+      localStorage.removeItem('perfil_beco');
-+      this.aoUnauthorized();
-+    },
 +    async carregarPainel() {
 +      await Promise.all([this.buscarEventos(), this.buscarBandas()]);
 +    },
 +    formatarData(data) {
-+      if (!data) return '';
-+      return new Date(data).toLocaleDateString('pt-BR');
++      if (!data) return '—';
++      const valor = typeof data === 'string' && data.includes('T') ? data : `${data}T12:00:00`;
++      return new Date(valor).toLocaleDateString('pt-BR');
 +    },
-+    mostrarErroApi(err, fallback = 'Erro ao processar a requisição.') {
++    mensagemErro(err, fallback) {
 +      if (err.response?.data?.detalhes) {
-+        const msgs = err.response.data.detalhes.map((d) => d.mensagem).join('\n');
-+        alert(`Erro na validação:\n${msgs}`);
-+        return;
++        return err.response.data.detalhes.map((d) => d.mensagem).join('\n');
 +      }
 +      if (err.response?.status === 403) {
-+        alert('Acesso negado: é necessário perfil administrador.');
-+        return;
++        return 'Acesso negado: é necessário perfil administrador.';
 +      }
-+      alert(err.response?.data?.erro || fallback);
++      return err.response?.data?.erro || fallback;
 +    },
-+
      async buscarEventos() {
        try {
          const resposta = await api.get('/eventos');
@@ -460,7 +516,7 @@ index adaa136..f216dd0 100644
 +        this.novoEvento = { nome: '', data: '', local: '' };
 +        await this.buscarEventos();
 +      } catch (err) {
-+        this.mostrarErroApi(err);
++        alert(this.mensagemErro(err, 'Erro ao cadastrar evento.'));
 +      }
      },
      async deletarEvento(id) {
@@ -471,10 +527,10 @@ index adaa136..f216dd0 100644
 -        this.buscarEventos();
 +        await this.buscarEventos();
 +      } catch (err) {
-+        this.mostrarErroApi(err);
++        alert(this.mensagemErro(err, 'Erro ao excluir evento.'));
        }
      },
- 
+-
 -    // BANDAS
      async buscarBandas() {
 -      const resposta = await api.get('/bandas');
@@ -504,15 +560,11 @@ index adaa136..f216dd0 100644
 -  }
 -},
 +      try {
-+        const payload = {
-+          ...this.novaBanda,
-+          cache_base: Number(this.novaBanda.cache_base)
-+        };
-+        await api.post('/bandas', payload);
++        await api.post('/bandas', this.novaBanda);
 +        this.novaBanda = { nome: '', genero: '', contato: '', cache_base: '' };
 +        await this.buscarBandas();
 +      } catch (err) {
-+        this.mostrarErroApi(err);
++        alert(this.mensagemErro(err, 'Erro ao cadastrar artista.'));
 +      }
 +    },
      async deletarBanda(id) {
@@ -523,10 +575,10 @@ index adaa136..f216dd0 100644
 -        this.buscarBandas();
 +        await this.buscarBandas();
 +      } catch (err) {
-+        this.mostrarErroApi(err);
++        alert(this.mensagemErro(err, 'Erro ao excluir artista.'));
        }
      },
- 
+-
 -    // LINE-UP
      async buscarLineup(eventoId) {
 -      const resposta = await api.get(`/lineup/${eventoId}`);
@@ -541,41 +593,40 @@ index adaa136..f216dd0 100644
      async adicionarAoLineup(evento) {
 -      if (!evento.novaBandaId) return alert('Selecione uma banda!');
 -      
--      const payload = {
--        evento_id: evento.id,
--        banda_id: evento.novaBandaId,
--        horario: evento.novoHorario || null
--      };
--      
--      await api.post('/lineup', payload);
--      evento.novaBandaId = '';
--      evento.novoHorario = '';
--      this.buscarLineup(evento.id); // Atualiza apenas o lineup deste evento
 +      if (!evento.novaBandaId) {
 +        alert('Selecione uma banda!');
 +        return;
 +      }
 +      if (!evento.novoHorario) {
-+        alert('Informe o horário de palco (obrigatório).');
++        alert('Informe o horário de palco (HH:MM).');
 +        return;
 +      }
 +
+       const payload = {
+         evento_id: evento.id,
+-        banda_id: evento.novaBandaId,
+-        horario: evento.novoHorario || null
++        banda_id: Number(evento.novaBandaId),
++        horario: evento.novoHorario.slice(0, 5)
+       };
+-      
+-      await api.post('/lineup', payload);
+-      evento.novaBandaId = '';
+-      evento.novoHorario = '';
+-      this.buscarLineup(evento.id); // Atualiza apenas o lineup deste evento
++
 +      try {
-+        await api.post('/lineup', {
-+          evento_id: evento.id,
-+          banda_id: Number(evento.novaBandaId),
-+          horario: evento.novoHorario
-+        });
++        await api.post('/lineup', payload);
 +        evento.novaBandaId = '';
 +        evento.novoHorario = '';
 +        await this.buscarLineup(evento.id);
 +      } catch (err) {
-+        this.mostrarErroApi(err);
++        alert(this.mensagemErro(err, 'Erro ao escalar banda.'));
 +      }
      },
      calcularCusto(eventoId) {
        const lineup = this.lineups[eventoId];
-@@ -191,4 +346,4 @@ export default {
+@@ -191,4 +427,4 @@ export default {
      }
    }
  };
@@ -583,7 +634,7 @@ index adaa136..f216dd0 100644
 \ No newline at end of file
 +</script>
 diff --git a/src/api.js b/src/api.js
-index 0e479fc..b01c0c1 100644
+index 0e479fc..dc6bb90 100644
 --- a/src/api.js
 +++ b/src/api.js
 @@ -1,10 +1,9 @@
@@ -610,7 +661,7 @@ index 0e479fc..b01c0c1 100644
 +    if (error.response?.status === 401) {
 +      localStorage.removeItem('token_beco');
 +      localStorage.removeItem('perfil_beco');
-+      if (typeof window !== 'undefined' && !window.location.hash.includes('login')) {
++      if (typeof window !== 'undefined') {
 +        window.dispatchEvent(new CustomEvent('beco:unauthorized'));
 +      }
 +    }
@@ -733,6 +784,3 @@ index cafee02..fe5bae3 100644
 -createApp(App).mount('#app')
 \ No newline at end of file
 +createApp(App).mount('#app')
--- 
-2.43.0
-

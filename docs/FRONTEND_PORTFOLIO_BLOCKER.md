@@ -11,11 +11,11 @@ em `RaulnikRoyce/frontend-beco-underground` (`Permission denied to cursor[bot]`,
 Aplique no clone do frontend:
 
 ```bash
+cd frontend-beco-underground
 git checkout -b cursor/portfolio-ready-frontend-e775
-git apply docs/frontend-portfolio-ready.patch   # se copiar este arquivo do repo da API
-# ou, a partir deste repositório:
 git apply /caminho/para/api-beco-underground/docs/frontend-portfolio-ready.patch
-git commit -am "feat(frontend): login JWT, API URL e alinhamento com a API"
+git add -A
+git commit -m "feat(frontend): login JWT, VITE_API_URL e line-up com horário"
 git push -u origin cursor/portfolio-ready-frontend-e775
 ```
 
@@ -23,10 +23,9 @@ git push -u origin cursor/portfolio-ready-frontend-e775
 
 | Item | Detalhe |
 |------|---------|
-| Login | Tela de login; token em `localStorage` (`token_beco`); perfil em `perfil_beco` |
+| Login | Tela de login JWT; `token_beco` + `perfil_beco` no `localStorage`; logout e 401 |
 | API URL | `import.meta.env.VITE_API_URL` em `src/api.js` + `.env.example` |
-| Line-up | Horário obrigatório no UI; campos `nome` / `lineup_id` / `cache` |
-| Bandas | `cache_base` enviado como `Number(...)` |
+| Line-up | Horário obrigatório (HH:MM); campos `nome` / `lineup_id` / `cache` |
 | Limpeza | Removido `HelloWorld.vue`; README e título da página atualizados |
 
 ## Dependência da API
