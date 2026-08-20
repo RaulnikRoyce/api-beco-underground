@@ -1,20 +1,48 @@
-// src/repositories/evento.repository.js
 const db = require('../database/db');
 
-exports.buscarTodos = () => {
-    return new Promise((resolve, reject) => {
-        db.query('SELECT * FROM eventos', (err, resultados) => {
-            if (err) return reject(err);
-            resolve(resultados);
-        });
-    });
+exports.buscarTodos = async () => {
+    const [resultados] = await db.promise().query(
+        'SELECT id, nome, data, local, criado_em FROM eventos ORDER BY data DESC, id DESC'
+    );
+    return resultados;
 };
 
-exports.buscarPorId = (id) => {
-    return new Promise((resolve, reject) => {
-        db.query('SELECT * FROM eventos WHERE id = ?', [id], (err, resultados) => {
-            if (err) return reject(err);
-            resolve(resultados[0]); // Retorna apenas o evento específico
-        });
-    });
+exports.buscarPorId = async (id) => {
+    const [resultados] = await db.promise().query(
+        'SELECT id, nome, data, local, criado_em FROM eventos WHERE id = ?',
+        [id]
+    );
+    return resultados[0] || null;
+};
+
+exports.salvar = async ({ nome, data, local }) => {
+    const [result] = await db.promise().query(
+        'INSERT INTO eventos (nome, data, local) VALUES (?, ?, ?)',
+        [nome, data, local]
+    );
+
+    return {
+        id: result.insertId,
+        nome,
+        data,
+        local
+    };
+};
+
+exports.atualizar = async (id, { nome, data, local }) => {
+    const [result] = await db.promise().query(
+        'UPDATE eventos SET nome = ?, data = ?, local = ? WHERE id = ?',
+        [nome, data, local, id]
+    );
+
+    if (result.affectedRows === 0) {
+        return null;
+    }
+
+    return exports.buscarPorId(id);
+};
+
+exports.remover = async (id) => {
+    const [result] = await db.promise().query('DELETE FROM eventos WHERE id = ?', [id]);
+    return result.affectedRows > 0;
 };
