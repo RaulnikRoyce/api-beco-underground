@@ -1,33 +1,48 @@
-# Frontend — mudanças portfolio-ready (bloqueio de push)
+# Frontend — publicar no GitHub (sua conta)
 
-## Status
+O agente Cloud **não consegue dar push** em `frontend-beco-underground` (403 para `cursor[bot]`).
+A API já está no PR: https://github.com/RaulnikRoyce/api-beco-underground/pull/2
 
-As alterações do frontend foram implementadas em `/tmp/frontend-beco-underground` na branch
-`cursor/portfolio-ready-frontend-e775`, mas o token do agente **não tem permissão de push**
-em `RaulnikRoyce/frontend-beco-underground` (`Permission denied to cursor[bot]`, HTTP 403).
+## Opção A — no seu PC (recomendado)
 
-## Patch
-
-Aplique no clone do frontend:
+Abra o **terminal do seu computador** (não o Cloud Agent), logado no GitHub:
 
 ```bash
+git clone https://github.com/RaulnikRoyce/frontend-beco-underground.git
 cd frontend-beco-underground
 git checkout -b cursor/portfolio-ready-frontend-e775
-git apply /caminho/para/api-beco-underground/docs/frontend-portfolio-ready.patch
+
+# Baixe o patch do PR da API (raw):
+curl -L -o frontend.patch \
+  https://raw.githubusercontent.com/RaulnikRoyce/api-beco-underground/cursor/portfolio-ready-api-e775/docs/frontend-portfolio-ready.patch
+
+git apply frontend.patch
 git add -A
 git commit -m "feat(frontend): login JWT, VITE_API_URL e line-up com horário"
 git push -u origin cursor/portfolio-ready-frontend-e775
 ```
 
-## O que mudou
+Depois no GitHub: abra o PR da branch para `main` do frontend.
+
+## Opção B — GitHub web
+
+1. Abra o patch:  
+   https://github.com/RaulnikRoyce/api-beco-underground/blob/cursor/portfolio-ready-api-e775/docs/frontend-portfolio-ready.patch  
+2. Aplique localmente (Opção A) — o GitHub web não aplica `.patch` grande com facilidade.
+
+## O que o patch inclui
 
 | Item | Detalhe |
 |------|---------|
-| Login | Tela de login JWT; `token_beco` + `perfil_beco` no `localStorage`; logout e 401 |
-| API URL | `import.meta.env.VITE_API_URL` em `src/api.js` + `.env.example` |
-| Line-up | Horário obrigatório (HH:MM); campos `nome` / `lineup_id` / `cache` |
-| Limpeza | Removido `HelloWorld.vue`; README e título da página atualizados |
+| Login | JWT; `token_beco` + `perfil_beco`; logout e redirect em 401 |
+| API URL | `VITE_API_URL` + `.env.example` |
+| Line-up | Horário obrigatório HH:MM |
+| Limpeza | Remove HelloWorld; README do produto |
 
-## Dependência da API
+## Depois de publicar o frontend
 
-Requer a branch `cursor/portfolio-ready-api-e775` (POST/DELETE eventos, DELETE bandas, login com `perfil`).
+1. Merge do [PR #2 da API](https://github.com/RaulnikRoyce/api-beco-underground/pull/2)  
+2. Merge do PR do frontend  
+3. (Opcional) prints em `docs/screenshots/` da API  
+
+Login local de teste: `admin@beco.local` / `Admin123!`
