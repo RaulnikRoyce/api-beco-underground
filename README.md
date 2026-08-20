@@ -79,6 +79,8 @@ Login padrão: `admin@beco.local` / `Admin123!` (sobrescreva com `ADMIN_EMAIL` /
 
 Clone e rode o [frontend Vue](https://github.com/RaulnikRoyce/frontend-beco-underground) com `VITE_API_URL=http://localhost:3000`.
 
+> **Nota de portfólio:** o painel Vue ainda precisa, no repositório frontend, de (1) tela de login JWT, (2) `VITE_API_URL` no Axios, (3) validação de `horario` (HH:MM) ao escalar line-up e (4) README próprio. Há um branch local `cursor/portfolio-ready-frontend-e775` com esses ajustes; o push para `RaulnikRoyce/frontend-beco-underground` foi negado pelo token desta execução (escopo só da API).
+
 ## Endpoints
 
 Autenticação: header `Authorization: Bearer <token>` (exceto `/auth/*` e `/health`).
