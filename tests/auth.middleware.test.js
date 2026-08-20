@@ -1,87 +1,97 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
 const { verificarToken, verificarPerfil } = require('../src/middlewares/auth.middleware');
 
-describe('auth.middleware', () => {
-    const secret = 'test-secret';
+const createResponse = () => {
+    const response = {
+        statusCode: null,
+        body: null,
+        status(code) {
+            response.statusCode = code;
+            return response;
+        },
+        json(body) {
+            response.body = body;
+            return response;
+        }
+    };
 
-    beforeEach(() => {
-        process.env.JWT_SECRET = secret;
+    return response;
+};
+
+test.beforeEach(() => {
+    process.env.JWT_SECRET = 'test-secret';
+});
+
+test.afterEach(() => {
+    delete process.env.JWT_SECRET;
+});
+
+test('aceita token válido e popula req.usuario', () => {
+    const token = jwt.sign({ id: 10, perfil: 'admin' }, 'test-secret', { expiresIn: '1h' });
+    const req = { get: () => `Bearer ${token}` };
+    const res = createResponse();
+    let nextCalled = false;
+
+    verificarToken(req, res, () => {
+        nextCalled = true;
     });
 
-    afterEach(() => {
-        delete process.env.JWT_SECRET;
+    assert.equal(nextCalled, true);
+    assert.equal(req.usuario.id, 10);
+    assert.equal(req.usuarioId, 10);
+    assert.equal(res.statusCode, null);
+});
+
+test('recusa requisição sem Bearer token', () => {
+    const req = { get: () => undefined };
+    const res = createResponse();
+    let nextCalled = false;
+
+    verificarToken(req, res, () => {
+        nextCalled = true;
     });
 
-    test('aceita um token válido e popula req.usuario', () => {
-        const token = jwt.sign({ id: 10, perfil: 'admin' }, secret, { expiresIn: '1h' });
-        const req = { get: () => `Bearer ${token}` };
-        const res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-        const next = jest.fn();
+    assert.equal(res.statusCode, 401);
+    assert.equal(nextCalled, false);
+});
 
-        verificarToken(req, res, next);
+test('recusa token inválido', () => {
+    const req = { get: () => 'Bearer token-invalido' };
+    const res = createResponse();
+    let nextCalled = false;
 
-        expect(next).toHaveBeenCalledTimes(1);
-        expect(req.usuario.id).toBe(10);
-        expect(req.usuarioId).toBe(10);
-        expect(res.status).not.toHaveBeenCalled();
+    verificarToken(req, res, () => {
+        nextCalled = true;
     });
 
-    test('recusa requisição sem Bearer token', () => {
-        const req = { get: () => undefined };
-        const res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-        const next = jest.fn();
+    assert.equal(res.statusCode, 401);
+    assert.equal(nextCalled, false);
+});
 
-        verificarToken(req, res, next);
+test('permite perfil autorizado', () => {
+    const req = { usuario: { perfil: 'admin' } };
+    const res = createResponse();
+    let nextCalled = false;
 
-        expect(res.status).toHaveBeenCalledWith(401);
-        expect(next).not.toHaveBeenCalled();
+    verificarPerfil(['admin'])(req, res, () => {
+        nextCalled = true;
     });
 
-    test('recusa token inválido', () => {
-        const req = { get: () => 'Bearer token-invalido' };
-        const res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-        const next = jest.fn();
+    assert.equal(nextCalled, true);
+    assert.equal(res.statusCode, null);
+});
 
-        verificarToken(req, res, next);
+test('bloqueia perfil não autorizado', () => {
+    const req = { usuario: { perfil: 'usuario' } };
+    const res = createResponse();
+    let nextCalled = false;
 
-        expect(res.status).toHaveBeenCalledWith(401);
-        expect(next).not.toHaveBeenCalled();
+    verificarPerfil(['admin'])(req, res, () => {
+        nextCalled = true;
     });
 
-    test('permite perfil autorizado', () => {
-        const req = { usuario: { perfil: 'admin' } };
-        const res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-        const next = jest.fn();
-
-        verificarPerfil(['admin'])(req, res, next);
-
-        expect(next).toHaveBeenCalledTimes(1);
-        expect(res.status).not.toHaveBeenCalled();
-    });
-
-    test('bloqueia perfil não autorizado', () => {
-        const req = { usuario: { perfil: 'usuario' } };
-        const res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-        const next = jest.fn();
-
-        verificarPerfil(['admin'])(req, res, next);
-
-        expect(res.status).toHaveBeenCalledWith(403);
-        expect(next).not.toHaveBeenCalled();
-    });
+    assert.equal(res.statusCode, 403);
+    assert.equal(nextCalled, false);
 });
