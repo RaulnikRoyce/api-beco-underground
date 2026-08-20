@@ -4,6 +4,8 @@ API REST para gestão de **eventos underground**, **bandas** e **line-up de palc
 
 Frontend (Vue 3): [frontend-beco-underground](https://github.com/RaulnikRoyce/frontend-beco-underground)
 
+> Patch portfolio-ready do frontend (login + `VITE_API_URL`): ver `docs/FRONTEND_PORTFOLIO_BLOCKER.md` e `docs/frontend-portfolio-ready.patch` — o push no repo Vue pode exigir token com permissão de escrita.
+
 ## Problema que resolve
 
 Casas e produtores precisam escalar artistas por evento, controlar horários de palco e somar cachês sem planilha solta. Esta API centraliza autenticação (JWT + perfis), CRUD de eventos/bandas e escalação no line-up, com validação Zod e painel resumido de custo por evento.
