@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const db = require('./database/db');
 
 const bandaRoutes = require('./routes/banda.routes');
 const eventoRoutes = require('./routes/evento.routes');
@@ -47,8 +48,14 @@ app.use('/eventos', eventoRoutes);
 app.use('/lineup', lineupRoutes);
 app.use('/dashboard', dashboardRoutes);
 
-app.get('/health', (req, res) => {
-    return res.status(200).json({ status: 'ok' });
+app.get('/health', async (req, res) => {
+    try {
+        await db.promise().query('SELECT 1');
+        return res.status(200).json({ status: 'ok', database: 'ok' });
+    } catch (error) {
+        console.error('Health check do banco falhou:', error.message);
+        return res.status(503).json({ status: 'degraded', database: 'unavailable' });
+    }
 });
 
 app.use((err, req, res, next) => {
