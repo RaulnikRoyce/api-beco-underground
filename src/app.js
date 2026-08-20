@@ -1,8 +1,7 @@
-// src/app.js
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet'); // <-- Armadura 1
-const rateLimit = require('express-rate-limit'); // <-- Armadura 2
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const bandaRoutes = require('./routes/banda.routes');
 const eventoRoutes = require('./routes/evento.routes');
@@ -12,33 +11,54 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 
 const app = express();
 
-// --- ÁREA DE SEGURANÇA (Sempre no topo) ---
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
-// 1. Helmet: Esconde do mundo externo quais tecnologias a API usa
+app.disable('x-powered-by');
 app.use(helmet());
+app.use(cors({
+    origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+    credentials: true,
+}));
+app.use(express.json({ limit: '1mb' }));
 
-// 2. CORS: Permite o acesso do frontend (podemos restringir isso no futuro)
-app.use(cors());
-
-// 3. Rate Limiter: Bloqueia ataques de força bruta (ex: 100 tentativas em 15 min)
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 100, // Limite de requisições por IP
-    message: { erro: "Muitas requisições detectadas deste IP. Por favor, tente novamente mais tarde." }
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { erro: 'Muitas requisições. Tente novamente mais tarde.' },
 });
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { erro: 'Muitas tentativas de autenticação. Tente novamente mais tarde.' },
+});
+
 app.use(limiter);
-
-// --- CONFIGURAÇÕES BÁSICAS ---
-app.use(express.json());
-
-// --- REGISTRO DE ROTAS ---
+app.use('/auth', authLimiter, authRoutes);
 app.use('/bandas', bandaRoutes);
 app.use('/eventos', eventoRoutes);
 app.use('/lineup', lineupRoutes);
-app.use('/auth', authRoutes);
 app.use('/dashboard', dashboardRoutes);
 
-// Rota de teste
-app.get('/', (req, res) => res.json({ mensagem: 'API operacional' }));
+app.get('/health', (req, res) => {
+    return res.status(200).json({ status: 'ok' });
+});
+
+app.use((err, req, res, next) => {
+    console.error('Erro não tratado:', err);
+
+    if (res.headersSent) {
+        return next(err);
+    }
+
+    return res.status(500).json({ erro: 'Erro interno do servidor.' });
+});
 
 module.exports = app;
