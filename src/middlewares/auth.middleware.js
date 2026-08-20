@@ -1,39 +1,48 @@
-// src/middlewares/auth.middleware.js
 const jwt = require('jsonwebtoken');
 
-exports.verificarToken = (req, res, next) => {
-    const tokenHeader = req.headers['authorization'];
-    
-    if (!tokenHeader) {
-        return res.status(403).json({ erro: 'Nenhum token fornecido. Acesso negado!' });
-    }
-    
-    const token = tokenHeader.replace('Bearer ', '');
+const getJwtSecret = () => {
+    const secret = process.env.JWT_SECRET;
 
-    jwt.verify(token, 'MINHA_CHAVE_SECRETA_MUITO_SEGURA', (err, decoded) => {
-        if (err) {
-            return res.status(401).json({ erro: 'Token inválido ou expirado!' });
-        }
-        
-        req.usuarioId = decoded.id;
-        next(); 
-    });
+    if (!secret) {
+        throw new Error('JWT_SECRET não configurado. Defina a variável de ambiente antes de iniciar a API.');
+    }
+
+    return secret;
 };
 
-// src/middlewares/auth.middleware.js
+exports.verificarToken = (req, res, next) => {
+    const authorization = req.get('authorization');
 
-// ... (seu código de verificarToken continua intocado lá em cima) ...
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+        return res.status(401).json({ erro: 'Token de autenticação não fornecido.' });
+    }
+
+    const token = authorization.slice('Bearer '.length).trim();
+
+    if (!token) {
+        return res.status(401).json({ erro: 'Token de autenticação não fornecido.' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, getJwtSecret());
+
+        req.usuario = decoded;
+        req.usuarioId = decoded.id;
+
+        return next();
+    } catch (error) {
+        return res.status(401).json({ erro: 'Token inválido ou expirado.' });
+    }
+};
 
 exports.verificarPerfil = (perfisPermitidos) => {
     return (req, res, next) => {
-        const perfilUsuario = req.usuario.perfil;
+        const perfilUsuario = req.usuario?.perfil;
 
-        if (!perfisPermitidos.includes(perfilUsuario)) {
-            return res.status(403).json({ 
-                erro: 'Acesso Negado: Você não tem permissão para visualizar o financeiro.' 
-            });
+        if (!perfilUsuario || !perfisPermitidos.includes(perfilUsuario)) {
+            return res.status(403).json({ erro: 'Acesso negado.' });
         }
-        
-        next();
+
+        return next();
     };
 };
