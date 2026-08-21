@@ -15,6 +15,13 @@ test('produtor só exclui o próprio evento', () => {
     assert.equal(outro, false);
 });
 
+test('editar evento usa a mesma regra da exclusão', () => {
+    const { podeEditarEvento } = require('../src/utils/evento.regras');
+    assert.equal(podeEditarEvento({ criado_por: 7 }, { id: 7, perfil: 'produtor' }), true);
+    assert.equal(podeEditarEvento({ criado_por: 7 }, { id: 8, perfil: 'produtor' }), false);
+    assert.equal(podeEditarEvento({ criado_por: 7 }, { id: 1, perfil: 'admin' }), true);
+});
+
 test('agrupa lineups pelo evento_id sem N+1', () => {
     const eventos = [{ id: 1, nome: 'A' }, { id: 2, nome: 'B' }];
     const itens = [

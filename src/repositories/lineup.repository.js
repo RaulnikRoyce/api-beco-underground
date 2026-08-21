@@ -12,6 +12,7 @@ const SELECT_LINEUP = `
     SELECT
         l.id AS lineup_id,
         l.evento_id,
+        l.banda_id,
         l.token_publico AS token,
         b.nome AS nome,
         TIME_FORMAT(l.horario, '%H:%i') AS horario,
@@ -69,5 +70,42 @@ exports.buscarPorToken = (token) => new Promise((resolve, reject) => {
     db.query(SELECT_SLOT_PUBLICO, [token], (err, resultados) => {
         if (err) return reject(err);
         resolve(resultados[0] || null);
+    });
+});
+
+exports.buscarPorId = (id) => new Promise((resolve, reject) => {
+    db.query(`${SELECT_LINEUP} WHERE l.id = ?`, [id], (err, resultados) => {
+        if (err) return reject(err);
+        resolve(resultados[0] || null);
+    });
+});
+
+exports.atualizar = (id, dados) => new Promise((resolve, reject) => {
+    const campos = [];
+    const params = [];
+
+    if (dados.horario !== undefined) {
+        campos.push('horario = ?');
+        params.push(dados.horario);
+    }
+    if (dados.cache_negociado !== undefined) {
+        campos.push('cache_negociado = ?');
+        params.push(dados.cache_negociado);
+    }
+
+    if (!campos.length) return resolve(null);
+
+    params.push(id);
+    db.query(`UPDATE lineup SET ${campos.join(', ')} WHERE id = ?`, params, (err, result) => {
+        if (err) return reject(err);
+        if (!result.affectedRows) return resolve(null);
+        exports.buscarPorId(id).then(resolve).catch(reject);
+    });
+});
+
+exports.excluir = (id) => new Promise((resolve, reject) => {
+    db.query('DELETE FROM lineup WHERE id = ?', [id], (err, result) => {
+        if (err) return reject(err);
+        resolve(result.affectedRows > 0);
     });
 });

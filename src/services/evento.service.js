@@ -2,9 +2,10 @@ const eventoRepository = require('../repositories/evento.repository');
 const lineupRepository = require('../repositories/lineup.repository');
 const { AppError } = require('../utils/erros');
 const { envelope } = require('../utils/paginacao');
-const { podeExcluirEvento, agruparLineups } = require('../utils/evento.regras');
+const { podeExcluirEvento, podeEditarEvento, agruparLineups } = require('../utils/evento.regras');
 
 exports.podeExcluirEvento = podeExcluirEvento;
+exports.podeEditarEvento = podeEditarEvento;
 exports.agruparLineups = agruparLineups;
 
 exports.listarEventos = async (query = {}) => {
@@ -41,4 +42,15 @@ exports.excluirEvento = async (id, usuario) => {
     }
 
     await eventoRepository.excluir(id);
+};
+
+exports.atualizarEvento = async (id, dados, usuario) => {
+    const evento = await eventoRepository.buscarPorId(id);
+    if (!evento) throw new AppError(404, 'Evento não encontrado');
+
+    if (!exports.podeEditarEvento(evento, usuario)) {
+        throw new AppError(403, 'Só o criador ou um admin pode editar este evento');
+    }
+
+    return eventoRepository.atualizar(id, dados);
 };

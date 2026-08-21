@@ -69,3 +69,30 @@ exports.excluir = (id) => new Promise((resolve, reject) => {
         resolve(result.affectedRows > 0);
     });
 });
+
+exports.atualizar = (id, dados) => new Promise((resolve, reject) => {
+    const campos = [];
+    const params = [];
+
+    if (dados.nome !== undefined) {
+        campos.push('nome = ?');
+        params.push(dados.nome);
+    }
+    if (dados.data !== undefined) {
+        campos.push('data = ?');
+        params.push(dados.data);
+    }
+    if (dados.local !== undefined) {
+        campos.push('local = ?');
+        params.push(dados.local);
+    }
+
+    if (!campos.length) return resolve(false);
+
+    params.push(id);
+    db.query(`UPDATE eventos SET ${campos.join(', ')} WHERE id = ?`, params, (err, result) => {
+        if (err) return reject(err);
+        if (!result.affectedRows) return resolve(false);
+        exports.buscarPorId(id).then(resolve).catch(reject);
+    });
+});

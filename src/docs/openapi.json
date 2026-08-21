@@ -111,6 +111,7 @@
     },
     "/eventos/{id}": {
       "get": { "summary": "Obter evento", "responses": { "200": { "description": "Evento" } } },
+      "patch": { "summary": "Editar evento (dono ou admin)", "responses": { "200": { "description": "Evento atualizado" } } },
       "delete": { "summary": "Excluir evento (dono ou admin)", "responses": { "200": { "description": "Evento excluído" } } }
     },
     "/bandas": {
@@ -137,8 +138,10 @@
     "/lineup": {
       "post": { "summary": "Escalar artista (admin)", "responses": { "201": { "description": "Artista escalado" } } }
     },
-    "/lineup/{evento_id}": {
-      "get": { "summary": "Lineup do evento", "responses": { "200": { "description": "Array com nome, horario, cache, lineup_id" } } }
+    "/lineup/{id}": {
+      "get": { "summary": "Lineup do evento (id = evento_id)", "responses": { "200": { "description": "Array com nome, horario, cache, lineup_id" } } },
+      "patch": { "summary": "Alterar horário/cachê da escalação (admin, id = lineup_id)", "responses": { "200": { "description": "Slot atualizado" } } },
+      "delete": { "summary": "Tirar artista da lineup (admin, id = lineup_id)", "responses": { "200": { "description": "Removido" } } }
     },
     "/dashboard/{evento_id}": {
       "get": { "summary": "Resumo de custo (admin)", "responses": { "200": { "description": "{ total_bandas, custo_total_caches, atracoes }" } } }

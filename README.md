@@ -47,10 +47,10 @@ npm run lint
 | POST | `/auth/login` | público (rate limit) |
 | POST | `/auth/registrar` | público; sempre cria `produtor` |
 | GET/PATCH/DELETE | `/auth/usuarios` | admin (bloquear/excluir equipe) |
-| GET/POST/DELETE | `/eventos` | logado; exclusão: dono ou admin |
+| GET/POST/PATCH/DELETE | `/eventos` | logado; editar/excluir: dono ou admin |
 | GET `/eventos?include=lineup` | eventos + lineup em uma ida | logado |
 | GET/POST/DELETE | `/bandas` | leitura logada; escrita admin |
-| GET/POST | `/lineup` | leitura logada; POST admin |
+| GET/POST/PATCH/DELETE | `/lineup` | leitura logada; escrita admin |
 | GET | `/publico/:token` | público; página da banda (só o cachê dela) |
 | GET | `/dashboard/:evento_id` | admin |
 

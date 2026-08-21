@@ -22,3 +22,8 @@ exports.excluirEvento = asyncHandler(async (req, res) => {
     await eventoService.excluirEvento(req.params.id, req.usuario);
     mensagem(res, 'Evento excluído');
 });
+
+exports.atualizarEvento = asyncHandler(async (req, res) => {
+    const evento = await eventoService.atualizarEvento(req.params.id, req.body, req.usuario);
+    ok(res, evento);
+});

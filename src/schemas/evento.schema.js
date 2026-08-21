@@ -6,6 +6,11 @@ exports.eventoSchema = z.object({
     local: z.string().trim().min(3, 'Local é obrigatório')
 });
 
+exports.eventoPatchSchema = exports.eventoSchema.partial().refine(
+    (dados) => Object.keys(dados).length > 0,
+    { message: 'Envie ao menos um campo para atualizar' }
+);
+
 exports.listarEventosQuery = z.object({
     q: z.string().trim().max(120).optional(),
     include: z.enum(['lineup']).optional(),

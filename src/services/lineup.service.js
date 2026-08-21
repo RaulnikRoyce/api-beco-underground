@@ -21,3 +21,15 @@ exports.adicionarNaLineup = (evento_id, banda_id, horario, cache_negociado) =>
     });
 
 exports.listarLineupDoEvento = (evento_id) => lineupRepository.buscarPorEvento(evento_id);
+
+exports.atualizarSlot = async (id, dados) => {
+    const slot = await lineupRepository.buscarPorId(id);
+    if (!slot) throw new AppError(404, 'Escalação não encontrada');
+    return lineupRepository.atualizar(id, dados);
+};
+
+exports.removerSlot = async (id) => {
+    const slot = await lineupRepository.buscarPorId(id);
+    if (!slot) throw new AppError(404, 'Escalação não encontrada');
+    await lineupRepository.excluir(id);
+};

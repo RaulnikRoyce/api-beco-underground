@@ -3,6 +3,8 @@ exports.podeExcluirEvento = (evento, usuario) => {
     return usuario.perfil === 'admin' || Number(evento.criado_por) === Number(usuario.id);
 };
 
+exports.podeEditarEvento = exports.podeExcluirEvento;
+
 exports.agruparLineups = (eventos, itens) => {
     const mapa = {};
     eventos.forEach((evento) => {
