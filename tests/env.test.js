@@ -1,0 +1,16 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { parseMysqlUrl, limpar } = require('../src/config/env');
+
+test('parseMysqlUrl lê host público e porta do proxy', () => {
+    const dados = parseMysqlUrl('mysql://root:s3nha@reseau.proxy.rlwy.net:56321/railway');
+    assert.equal(dados.host, 'reseau.proxy.rlwy.net');
+    assert.equal(dados.port, '56321');
+    assert.equal(dados.user, 'root');
+    assert.equal(dados.database, 'railway');
+    assert.equal(dados.password, 's3nha');
+});
+
+test('limpar remove aspas acidentais', () => {
+    assert.equal(limpar('  "56321"  '), '56321');
+});

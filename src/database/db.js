@@ -1,36 +1,73 @@
+const dns = require('dns');
 const mysql = require('mysql2');
-require('dotenv').config();
-require('dotenv').config({ path: '.env.local', override: true });
+
+dns.setDefaultResultOrder('ipv4first');
+
+const host = process.env.DB_HOST || '';
+const local = host === 'localhost' || host === '127.0.0.1';
+const usarSsl = process.env.DB_SSL === 'true' || (!local && process.env.DB_SSL !== 'false');
+const porta = Number(process.env.DB_PORT) || 3306;
 
 const pool = mysql.createPool({
-    host: process.env.DB_HOST,
+    host,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    port: Number(process.env.DB_PORT) || 3306,
+    port: porta,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    connectTimeout: 20000,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
+    ssl: usarSsl ? { rejectUnauthorized: false } : undefined
 });
 
-if (process.env.NODE_ENV !== 'test') {
+pool.on('error', (err) => {
+    console.error(JSON.stringify({
+        nivel: 'error',
+        mensagem: 'Pool MySQL',
+        detalhe: err.message,
+        codigo: err.code,
+        em: new Date().toISOString()
+    }));
+});
+
+const tentarConexao = (tentativa) => {
     pool.getConnection((err, connection) => {
-        if (err) {
-            console.error(JSON.stringify({
-                nivel: 'error',
-                mensagem: 'Erro ao conectar no banco',
-                detalhe: err.message,
+        if (!err) {
+            console.log(JSON.stringify({
+                nivel: 'info',
+                mensagem: 'Banco conectado',
+                host,
+                porta,
+                ssl: Boolean(usarSsl),
                 em: new Date().toISOString()
             }));
+            connection.release();
             return;
         }
-        console.log(JSON.stringify({
-            nivel: 'info',
-            mensagem: 'Banco conectado',
+
+        console.error(JSON.stringify({
+            nivel: 'error',
+            mensagem: 'Erro ao conectar no banco',
+            detalhe: err.message,
+            codigo: err.code,
+            host,
+            porta,
+            ssl: Boolean(usarSsl),
+            tentativa,
             em: new Date().toISOString()
         }));
-        connection.release();
+
+        if (tentativa < 3) {
+            setTimeout(() => tentarConexao(tentativa + 1), 2000 * tentativa);
+        }
     });
+};
+
+if (process.env.NODE_ENV !== 'test') {
+    tentarConexao(1);
 }
 
 pool.comTransacao = (trabalho) => new Promise((resolve, reject) => {

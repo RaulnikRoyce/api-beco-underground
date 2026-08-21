@@ -8,7 +8,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "seed:admin": "node scripts/seed_admin.js",
-    "test": "node --require ./tests/setup-env.cjs --test --test-concurrency=1 ./tests/auth.middleware.test.js ./tests/evento.service.test.js ./tests/jwt.test.js ./tests/health.test.js",
+    "test": "node --require ./tests/setup-env.cjs --test --test-concurrency=1 ./tests/auth.middleware.test.js ./tests/evento.service.test.js ./tests/jwt.test.js ./tests/health.test.js ./tests/env.test.js",
     "lint": "eslint src tests server.js",
     "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\" server.js"
   },
