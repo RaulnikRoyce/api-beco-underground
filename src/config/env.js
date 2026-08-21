@@ -22,18 +22,19 @@ const parseMysqlUrl = (url) => {
 };
 
 const carregarEnv = () => {
-    const url = primeiroDefinido(['DATABASE_URL', 'MYSQL_PUBLIC_URL']);
+    const dbHost = primeiroDefinido(['DB_HOST']);
+    const url = !dbHost ? primeiroDefinido(['DATABASE_URL', 'MYSQL_PUBLIC_URL']) : '';
     const doUrl = url.startsWith('mysql') ? parseMysqlUrl(url) : null;
 
-    const dbHost = doUrl?.host || primeiroDefinido(['DB_HOST']);
-    const dbUser = doUrl?.user || primeiroDefinido(['DB_USER', 'MYSQLUSER']);
-    const dbName = doUrl?.database || primeiroDefinido(['DB_NAME', 'MYSQLDATABASE', 'MYSQL_DATABASE']);
-    const dbPassword = doUrl?.password || primeiroDefinido(['DB_PASSWORD', 'MYSQLPASSWORD', 'MYSQL_ROOT_PASSWORD']);
-    const dbPort = doUrl?.port || primeiroDefinido(['DB_PORT']) || '3306';
+    const hostFinal = dbHost || doUrl?.host || '';
+    const dbUser = primeiroDefinido(['DB_USER', 'MYSQLUSER']) || doUrl?.user || '';
+    const dbName = primeiroDefinido(['DB_NAME', 'MYSQLDATABASE', 'MYSQL_DATABASE']) || doUrl?.database || '';
+    const dbPassword = primeiroDefinido(['DB_PASSWORD', 'MYSQLPASSWORD', 'MYSQL_ROOT_PASSWORD']) || doUrl?.password || '';
+    const dbPort = primeiroDefinido(['DB_PORT']) || doUrl?.port || '3306';
     const jwtSecret = primeiroDefinido(['JWT_SECRET']);
 
     const faltando = [];
-    if (!dbHost) faltando.push('DB_HOST ou MYSQL_PUBLIC_URL');
+    if (!hostFinal) faltando.push('DB_HOST ou MYSQL_PUBLIC_URL');
     if (!dbUser) faltando.push('DB_USER');
     if (!dbName) faltando.push('DB_NAME');
     if (!jwtSecret) faltando.push('JWT_SECRET');
@@ -45,7 +46,7 @@ const carregarEnv = () => {
         );
     }
 
-    process.env.DB_HOST = dbHost;
+    process.env.DB_HOST = hostFinal;
     process.env.DB_USER = dbUser;
     process.env.DB_NAME = dbName;
     process.env.DB_PASSWORD = dbPassword;
@@ -55,7 +56,7 @@ const carregarEnv = () => {
     return {
         nodeEnv: process.env.NODE_ENV || 'development',
         port: Number(process.env.PORT) || 3000,
-        dbHost,
+        dbHost: hostFinal,
         dbPort: Number(dbPort)
     };
 };

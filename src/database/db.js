@@ -4,8 +4,7 @@ const mysql = require('mysql2');
 dns.setDefaultResultOrder('ipv4first');
 
 const host = process.env.DB_HOST || '';
-const local = host === 'localhost' || host === '127.0.0.1';
-const usarSsl = process.env.DB_SSL === 'true' || (!local && process.env.DB_SSL !== 'false');
+const usarSsl = process.env.DB_SSL === 'true';
 const porta = Number(process.env.DB_PORT) || 3306;
 
 const pool = mysql.createPool({

@@ -36,7 +36,7 @@ Não use `MYSQL_URL` / `mysql.railway.internal` / porta 3306 no Render.
 
 Se preferir campos separados: `DB_HOST=….proxy.rlwy.net`, `DB_PORT=` porta pública, `DB_USER`, `DB_PASSWORD`, `DB_NAME=railway`.
 
-MySQL 8 no Railway, de fora, costuma exigir TLS: o código liga SSL sozinho fora de localhost. Só coloque `DB_SSL=false` se o log mostrar falha de handshake.
+MySQL 8 no Railway, de fora, usa TCP **sem** TLS (`mysql://`, não `mysqls://`). O código **não** liga SSL, a menos que você defina `DB_SSL=true`.
 
 Importe `database/schema.sql`. Se o banco já existia sem `criado_por`, rode `database/migrations/001_eventos_criado_por.sql`.
 
