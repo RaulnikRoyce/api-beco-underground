@@ -15,6 +15,10 @@ const openapi = require('./docs/openapi.json');
 const app = express();
 const emProducao = process.env.NODE_ENV === 'production';
 
+if (emProducao) {
+    app.set('trust proxy', 1);
+}
+
 const allowedOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
     : [];

@@ -6,7 +6,7 @@ const ORDENAR = {
     nome: 'nome ASC'
 };
 
-const SELECT_EVENTO = 'SELECT id, nome, DATE_FORMAT(data, "%Y-%m-%d") AS data, local, criado_por FROM eventos';
+const SELECT_EVENTO = "SELECT id, nome, DATE_FORMAT(data, '%Y-%m-%d') AS data, local, criado_por FROM eventos";
 
 exports.buscarTodos = ({ q, ordenar = 'data_desc', limite, offset } = {}) => new Promise((resolve, reject) => {
     const params = [];
