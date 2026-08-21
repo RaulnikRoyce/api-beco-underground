@@ -1,9 +1,11 @@
 const db = require('../database/db');
+const { gerarTokenPublico } = require('../utils/token.publico');
 
 const SELECT_LINEUP = `
     SELECT
         l.id AS lineup_id,
         l.evento_id,
+        l.token_publico AS token,
         b.nome AS nome,
         TIME_FORMAT(l.horario, '%H:%i') AS horario,
         COALESCE(l.cache_negociado, b.cache_base) AS cache
@@ -11,11 +13,28 @@ const SELECT_LINEUP = `
     JOIN bandas b ON l.banda_id = b.id
 `;
 
+const SELECT_SLOT_PUBLICO = `
+    SELECT
+        l.id AS lineup_id,
+        l.evento_id,
+        b.nome AS nome,
+        TIME_FORMAT(l.horario, '%H:%i') AS horario,
+        COALESCE(l.cache_negociado, b.cache_base) AS cache,
+        e.nome AS evento_nome,
+        DATE_FORMAT(e.data, '%Y-%m-%d') AS evento_data,
+        e.local AS evento_local
+    FROM lineup l
+    JOIN bandas b ON l.banda_id = b.id
+    JOIN eventos e ON e.id = l.evento_id
+    WHERE l.token_publico = ?
+`;
+
 exports.salvar = (evento_id, banda_id, horario, cache_negociado) => new Promise((resolve, reject) => {
-    const sql = 'INSERT INTO lineup (evento_id, banda_id, horario, cache_negociado) VALUES (?, ?, ?, ?)';
-    db.query(sql, [evento_id, banda_id, horario ?? null, cache_negociado ?? null], (err, result) => {
+    const token_publico = gerarTokenPublico();
+    const sql = 'INSERT INTO lineup (evento_id, banda_id, horario, cache_negociado, token_publico) VALUES (?, ?, ?, ?, ?)';
+    db.query(sql, [evento_id, banda_id, horario ?? null, cache_negociado ?? null, token_publico], (err, result) => {
         if (err) return reject(err);
-        resolve({ id: result.insertId, evento_id, banda_id, horario, cache_negociado });
+        resolve({ id: result.insertId, evento_id, banda_id, horario, cache_negociado, token: token_publico });
     });
 });
 
@@ -36,5 +55,12 @@ exports.buscarPorEventos = (ids) => new Promise((resolve, reject) => {
     db.query(sql, ids, (err, resultados) => {
         if (err) return reject(err);
         resolve(resultados);
+    });
+});
+
+exports.buscarPorToken = (token) => new Promise((resolve, reject) => {
+    db.query(SELECT_SLOT_PUBLICO, [token], (err, resultados) => {
+        if (err) return reject(err);
+        resolve(resultados[0] || null);
     });
 });

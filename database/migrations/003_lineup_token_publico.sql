@@ -1,0 +1,2 @@
+ALTER TABLE lineup
+    ADD COLUMN token_publico VARCHAR(64) NULL UNIQUE;

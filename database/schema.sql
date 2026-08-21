@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS lineup (
     banda_id INT NOT NULL,
     horario TIME NULL,
     cache_negociado DECIMAL(10, 2) NULL,
+    token_publico VARCHAR(64) NULL UNIQUE,
     UNIQUE KEY unique_escalacao (evento_id, banda_id),
     FOREIGN KEY (evento_id) REFERENCES eventos(id) ON DELETE CASCADE,
     FOREIGN KEY (banda_id) REFERENCES bandas(id) ON DELETE RESTRICT

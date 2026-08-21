@@ -7,6 +7,7 @@ const bandaRoutes = require('./routes/banda.routes');
 const eventoRoutes = require('./routes/evento.routes');
 const lineupRoutes = require('./routes/lineup.routes');
 const authRoutes = require('./routes/auth.routes');
+const publicoRoutes = require('./routes/publico.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const { manipularErros, rotaNaoEncontrada } = require('./middlewares/erros');
 const logger = require('./utils/logger');
@@ -68,6 +69,7 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 app.get('/openapi.json', (_req, res) => res.json(openapi));
 
 app.use('/auth', authRoutes);
+app.use('/publico', publicoRoutes);
 app.use('/bandas', bandaRoutes);
 app.use('/eventos', eventoRoutes);
 app.use('/lineup', lineupRoutes);

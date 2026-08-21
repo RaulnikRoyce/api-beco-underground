@@ -121,6 +121,19 @@
       "get": { "summary": "Obter artista", "responses": { "200": { "description": "Banda" } } },
       "delete": { "summary": "Excluir artista (admin)", "responses": { "200": { "description": "Banda excluída" } } }
     },
+    "/publico/{token}": {
+      "get": {
+        "security": [],
+        "summary": "Página da banda: evento, horário e cachê dela (sem login)",
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "{ evento, voce, lineup } — lineup sem cachê das outras" },
+          "404": { "description": "Link inválido" }
+        }
+      }
+    },
     "/lineup": {
       "post": { "summary": "Escalar artista (admin)", "responses": { "201": { "description": "Artista escalado" } } }
     },

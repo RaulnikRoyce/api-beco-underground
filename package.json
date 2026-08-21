@@ -10,7 +10,7 @@
     "seed:admin": "node scripts/seed_admin.js",
     "import:schema": "node scripts/import-schema.js",
     "migrate": "node scripts/migrate.js",
-    "test": "node --require ./tests/setup-env.cjs --test --test-concurrency=1 ./tests/auth.middleware.test.js ./tests/evento.service.test.js ./tests/usuario.regras.test.js ./tests/jwt.test.js ./tests/health.test.js ./tests/env.test.js",
+    "test": "node --require ./tests/setup-env.cjs --test --test-concurrency=1 ./tests/auth.middleware.test.js ./tests/evento.service.test.js ./tests/usuario.regras.test.js ./tests/publico.regras.test.js ./tests/publico.test.js ./tests/jwt.test.js ./tests/health.test.js ./tests/env.test.js",
     "lint": "eslint src tests server.js",
     "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\" server.js"
   },
