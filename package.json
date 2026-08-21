@@ -2,11 +2,15 @@
   "name": "api-beco-underground",
   "version": "1.0.0",
   "private": true,
-  "description": "API REST do sistema Beco Underground",
+  "description": "API REST Beco Underground",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "dev": "node server.js",
+    "seed:admin": "node scripts/seed_admin.js",
+    "test": "node --require ./tests/setup-env.cjs --test --test-concurrency=1 ./tests/auth.middleware.test.js ./tests/evento.service.test.js ./tests/jwt.test.js ./tests/health.test.js",
+    "lint": "eslint src tests server.js",
+    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\" server.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -18,5 +22,9 @@
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.22.5",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "prettier": "^3.6.2"
   }
 }

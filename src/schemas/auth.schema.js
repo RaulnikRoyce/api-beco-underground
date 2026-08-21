@@ -1,14 +1,12 @@
 const { z } = require('zod');
 
-const email = z.string().trim().email('E-mail inválido.').max(254);
-const senha = z.string().min(8, 'A senha deve ter pelo menos 8 caracteres.').max(128);
-
 exports.loginSchema = z.object({
-    email,
-    senha
+    email: z.string().email('E-mail inválido'),
+    senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres')
 });
 
-exports.registroSchema = z.object({
-    email,
-    senha
+exports.registrarSchema = z.object({
+    email: z.string().email('E-mail inválido'),
+    senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+    perfil: z.enum(['admin', 'produtor']).optional()
 });

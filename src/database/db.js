@@ -1,12 +1,6 @@
 const mysql = require('mysql2');
 require('dotenv').config();
-
-const requiredEnv = ['DB_HOST', 'DB_USER', 'DB_NAME'];
-const missingEnv = requiredEnv.filter((name) => !process.env[name]);
-
-if (missingEnv.length > 0) {
-    throw new Error(`Variáveis de banco não configuradas: ${missingEnv.join(', ')}`);
-}
+require('dotenv').config({ path: '.env.local', override: true });
 
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
@@ -15,18 +9,63 @@ const pool = mysql.createPool({
     database: process.env.DB_NAME,
     port: Number(process.env.DB_PORT) || 3306,
     waitForConnections: true,
-    connectionLimit: Number(process.env.DB_CONNECTION_LIMIT) || 10,
-    queueLimit: 0,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
-pool.on('connection', () => {
-    console.log('Conexão do pool com o banco do Beco Underground estabelecida.');
-});
+if (process.env.NODE_ENV !== 'test') {
+    pool.getConnection((err, connection) => {
+        if (err) {
+            console.error(JSON.stringify({
+                nivel: 'error',
+                mensagem: 'Erro ao conectar no banco',
+                detalhe: err.message,
+                em: new Date().toISOString()
+            }));
+            return;
+        }
+        console.log(JSON.stringify({
+            nivel: 'info',
+            mensagem: 'Banco conectado',
+            em: new Date().toISOString()
+        }));
+        connection.release();
+    });
+}
 
-pool.promise().query('SELECT 1').catch((error) => {
-    console.error('Falha ao validar a conexão com o banco de dados:', error.message);
+pool.comTransacao = (trabalho) => new Promise((resolve, reject) => {
+    pool.getConnection((err, conn) => {
+        if (err) return reject(err);
+
+        conn.beginTransaction((errTx) => {
+            if (errTx) {
+                conn.release();
+                return reject(errTx);
+            }
+
+            const exec = (sql, params = []) => new Promise((ok, falha) => {
+                conn.query(sql, params, (erroQuery, resultados) => {
+                    if (erroQuery) return falha(erroQuery);
+                    ok(resultados);
+                });
+            });
+
+            Promise.resolve(trabalho(exec))
+                .then((resultado) => {
+                    conn.commit((erroCommit) => {
+                        conn.release();
+                        if (erroCommit) return reject(erroCommit);
+                        resolve(resultado);
+                    });
+                })
+                .catch((erroTrabalho) => {
+                    conn.rollback(() => {
+                        conn.release();
+                        reject(erroTrabalho);
+                    });
+                });
+        });
+    });
 });
 
 module.exports = pool;

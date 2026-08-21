@@ -1,23 +1,24 @@
-// src/controllers/evento.controller.js
 const eventoService = require('../services/evento.service');
+const { asyncHandler, AppError } = require('../utils/erros');
+const { ok, criado, mensagem } = require('../utils/resposta');
 
-exports.listarEventos = async (req, res) => {
-    try {
-        const eventos = await eventoService.listarEventos();
-        res.json(eventos);
-    } catch (error) {
-        console.error("Erro ao listar eventos:", error);
-        res.status(500).json({ erro: 'Erro interno ao buscar os eventos' });
-    }
-};
+exports.listarEventos = asyncHandler(async (req, res) => {
+    const eventos = await eventoService.listarEventos(req.query);
+    ok(res, eventos);
+});
 
-exports.obterEventoPorId = async (req, res) => {
-    try {
-        const evento = await eventoService.obterEventoPorId(req.params.id);
-        if (!evento) return res.status(404).json({ erro: 'Evento não encontrado' });
-        res.json(evento);
-    } catch (error) {
-        console.error("Erro ao buscar o evento:", error);
-        res.status(500).json({ erro: 'Erro interno ao buscar o evento' });
-    }
-};
+exports.obterEventoPorId = asyncHandler(async (req, res) => {
+    const evento = await eventoService.obterEventoPorId(req.params.id);
+    if (!evento) throw new AppError(404, 'Evento não encontrado');
+    ok(res, evento);
+});
+
+exports.adicionarEvento = asyncHandler(async (req, res) => {
+    const evento = await eventoService.adicionarEvento(req.body, req.usuario);
+    criado(res, 'Evento criado', { evento });
+});
+
+exports.excluirEvento = asyncHandler(async (req, res) => {
+    await eventoService.excluirEvento(req.params.id, req.usuario);
+    mensagem(res, 'Evento excluído');
+});

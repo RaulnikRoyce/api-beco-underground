@@ -1,0 +1,114 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "API Beco Underground",
+    "version": "1.0.0",
+    "description": "Painel interno de produção: eventos, artistas, lineup e cachê."
+  },
+  "servers": [
+    { "url": "http://localhost:3000", "description": "Local" },
+    { "url": "https://api-beco-underground.onrender.com", "description": "Produção" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "Erro": {
+        "type": "object",
+        "properties": {
+          "erro": { "type": "string" },
+          "detalhes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "campo": { "type": "string" },
+                "mensagem": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/health": {
+      "get": {
+        "security": [],
+        "summary": "Saúde da API",
+        "responses": { "200": { "description": "{ status: ok }" } }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "security": [],
+        "summary": "Login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "senha"],
+                "properties": {
+                  "email": { "type": "string" },
+                  "senha": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "{ mensagem, token, perfil, email, id }" },
+          "401": { "description": "Credenciais inválidas" }
+        }
+      }
+    },
+    "/auth/registrar": {
+      "post": {
+        "summary": "Cadastrar usuário (admin)",
+        "responses": { "201": { "description": "Usuário cadastrado" } }
+      }
+    },
+    "/eventos": {
+      "get": {
+        "summary": "Listar eventos",
+        "parameters": [
+          { "name": "include", "in": "query", "schema": { "enum": ["lineup"] } },
+          { "name": "q", "in": "query", "schema": { "type": "string" } },
+          { "name": "ordenar", "in": "query", "schema": { "enum": ["data_desc", "data_asc", "nome"] } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Array de eventos, ou envelope { dados, meta } se page for enviado" } }
+      },
+      "post": {
+        "summary": "Criar evento",
+        "responses": { "201": { "description": "Evento criado" } }
+      }
+    },
+    "/eventos/{id}": {
+      "get": { "summary": "Obter evento", "responses": { "200": { "description": "Evento" } } },
+      "delete": { "summary": "Excluir evento (dono ou admin)", "responses": { "200": { "description": "Evento excluído" } } }
+    },
+    "/bandas": {
+      "get": { "summary": "Listar artistas", "responses": { "200": { "description": "Array de bandas" } } },
+      "post": { "summary": "Cadastrar artista (admin)", "responses": { "201": { "description": "Banda cadastrada" } } }
+    },
+    "/bandas/{id}": {
+      "get": { "summary": "Obter artista", "responses": { "200": { "description": "Banda" } } },
+      "delete": { "summary": "Excluir artista (admin)", "responses": { "200": { "description": "Banda excluída" } } }
+    },
+    "/lineup": {
+      "post": { "summary": "Escalar artista (admin)", "responses": { "201": { "description": "Artista escalado" } } }
+    },
+    "/lineup/{evento_id}": {
+      "get": { "summary": "Lineup do evento", "responses": { "200": { "description": "Array com nome, horario, cache, lineup_id" } } }
+    },
+    "/dashboard/{evento_id}": {
+      "get": { "summary": "Resumo de custo (admin)", "responses": { "200": { "description": "{ total_bandas, custo_total_caches, atracoes }" } } }
+    }
+  }
+}

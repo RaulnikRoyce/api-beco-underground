@@ -1,9 +1,14 @@
 require('dotenv').config();
+require('dotenv').config({ path: '.env.local', override: true });
 
+const { carregarEnv } = require('./src/config/env');
+const env = carregarEnv();
 const app = require('./src/app');
 
-const PORT = Number(process.env.PORT) || 3000;
-
-app.listen(PORT, () => {
-    console.log(`API iniciada na porta ${PORT}.`);
+app.listen(env.port, () => {
+    console.log(JSON.stringify({
+        nivel: 'info',
+        mensagem: `API em http://localhost:${env.port}`,
+        em: new Date().toISOString()
+    }));
 });

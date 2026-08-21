@@ -1,20 +1,71 @@
-// src/repositories/evento.repository.js
 const db = require('../database/db');
 
-exports.buscarTodos = () => {
-    return new Promise((resolve, reject) => {
-        db.query('SELECT * FROM eventos', (err, resultados) => {
-            if (err) return reject(err);
-            resolve(resultados);
-        });
-    });
+const ORDENAR = {
+    data_desc: 'data DESC, id DESC',
+    data_asc: 'data ASC, id ASC',
+    nome: 'nome ASC'
 };
 
-exports.buscarPorId = (id) => {
-    return new Promise((resolve, reject) => {
-        db.query('SELECT * FROM eventos WHERE id = ?', [id], (err, resultados) => {
-            if (err) return reject(err);
-            resolve(resultados[0]); // Retorna apenas o evento específico
-        });
+const SELECT_EVENTO = 'SELECT id, nome, DATE_FORMAT(data, "%Y-%m-%d") AS data, local, criado_por FROM eventos';
+
+exports.buscarTodos = ({ q, ordenar = 'data_desc', limite, offset } = {}) => new Promise((resolve, reject) => {
+    const params = [];
+    let sql = SELECT_EVENTO;
+
+    if (q) {
+        sql += ' WHERE (nome LIKE ? OR local LIKE ?)';
+        params.push(`%${q}%`, `%${q}%`);
+    }
+
+    sql += ` ORDER BY ${ORDENAR[ordenar] || ORDENAR.data_desc}`;
+
+    if (limite != null) {
+        sql += ' LIMIT ? OFFSET ?';
+        params.push(Number(limite), Number(offset) || 0);
+    }
+
+    db.query(sql, params, (err, resultados) => {
+        if (err) return reject(err);
+        resolve(resultados);
     });
-};
+});
+
+exports.contar = ({ q } = {}) => new Promise((resolve, reject) => {
+    const params = [];
+    let sql = 'SELECT COUNT(*) AS total FROM eventos';
+
+    if (q) {
+        sql += ' WHERE (nome LIKE ? OR local LIKE ?)';
+        params.push(`%${q}%`, `%${q}%`);
+    }
+
+    db.query(sql, params, (err, resultados) => {
+        if (err) return reject(err);
+        resolve(resultados[0].total);
+    });
+});
+
+exports.buscarPorId = (id) => new Promise((resolve, reject) => {
+    db.query(`${SELECT_EVENTO} WHERE id = ?`, [id], (err, resultados) => {
+        if (err) return reject(err);
+        resolve(resultados[0]);
+    });
+});
+
+exports.salvar = ({ nome, data, local, criado_por }) => new Promise((resolve, reject) => {
+    db.query(
+        'INSERT INTO eventos (nome, data, local, criado_por) VALUES (?, ?, ?, ?)',
+        [nome, data, local, criado_por || null],
+        (err, result) => {
+            if (err) return reject(err);
+            resolve({ id: result.insertId, nome, data, local, criado_por });
+        }
+    );
+});
+
+exports.excluir = (id) => new Promise((resolve, reject) => {
+    db.query('DELETE FROM eventos WHERE id = ?', [id], (err, result) => {
+        if (err) return reject(err);
+        resolve(result.affectedRows > 0);
+    });
+});

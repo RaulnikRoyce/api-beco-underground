@@ -1,32 +1,33 @@
-// src/repositories/banda.repository.js
 const db = require('../database/db');
 
-exports.buscarTodas = () => {
-    return new Promise((resolve, reject) => {
-        db.query('SELECT * FROM bandas', (err, resultados) => {
-            if (err) return reject(err);
-            resolve(resultados);
-        });
+exports.buscarTodas = () => new Promise((resolve, reject) => {
+    db.query('SELECT * FROM bandas ORDER BY nome ASC', (err, resultados) => {
+        if (err) return reject(err);
+        resolve(resultados);
     });
-};
+});
 
-// --- A PEÇA QUE FALTAVA ---
-exports.buscarPorId = (id) => {
-    return new Promise((resolve, reject) => {
-        db.query('SELECT * FROM bandas WHERE id = ?', [id], (err, resultados) => {
-            if (err) return reject(err);
-            resolve(resultados[0]); // Retorna apenas a banda específica
-        });
+exports.buscarPorId = (id) => new Promise((resolve, reject) => {
+    db.query('SELECT * FROM bandas WHERE id = ?', [id], (err, resultados) => {
+        if (err) return reject(err);
+        resolve(resultados[0]);
     });
-};
+});
 
-exports.salvar = (dados) => {
-    return new Promise((resolve, reject) => {
-        const { nome, genero, contato, cache_base } = dados;
-        db.query('INSERT INTO bandas (nome, genero, contato, cache_base) VALUES (?, ?, ?, ?)', 
-        [nome, genero, contato, cache_base], (err, result) => {
+exports.salvar = ({ nome, genero, contato, cache_base }) => new Promise((resolve, reject) => {
+    db.query(
+        'INSERT INTO bandas (nome, genero, contato, cache_base) VALUES (?, ?, ?, ?)',
+        [nome, genero || null, contato || null, cache_base],
+        (err, result) => {
             if (err) return reject(err);
-            resolve({ id: result.insertId, ...dados });
-        });
+            resolve({ id: result.insertId, nome, genero, contato, cache_base });
+        }
+    );
+});
+
+exports.excluir = (id) => new Promise((resolve, reject) => {
+    db.query('DELETE FROM bandas WHERE id = ?', [id], (err, result) => {
+        if (err) return reject(err);
+        resolve(result.affectedRows > 0);
     });
-};
+});

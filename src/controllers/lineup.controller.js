@@ -1,23 +1,13 @@
-// src/controllers/lineup.controller.js
 const lineupService = require('../services/lineup.service');
+const { asyncHandler } = require('../utils/erros');
+const { ok, criado } = require('../utils/resposta');
 
-exports.adicionarBanda = async (req, res) => {
-    try {
-        const { evento_id, banda_id, horario, cache_negociado } = req.body;
-        const novaEscalacao = await lineupService.adicionarNaLineup(evento_id, banda_id, horario, cache_negociado);
-        res.status(201).json({ mensagem: 'Banda escalada com sucesso!', lineup: novaEscalacao });
-    } catch (error) {
-        console.error("Erro ao escalar banda:", error);
-        res.status(500).json({ erro: 'Erro interno ao adicionar banda no line-up' });
-    }
-};
+exports.adicionarBanda = asyncHandler(async (req, res) => {
+    const { evento_id, banda_id, horario, cache_negociado } = req.body;
+    const lineup = await lineupService.adicionarNaLineup(evento_id, banda_id, horario, cache_negociado);
+    criado(res, 'Artista escalado', { lineup });
+});
 
-exports.listarLineup = async (req, res) => {
-    try {
-        const lineup = await lineupService.listarLineupDoEvento(req.params.evento_id);
-        res.json(lineup);
-    } catch (error) {
-        console.error("Erro ao buscar line-up:", error);
-        res.status(500).json({ erro: 'Erro interno ao buscar o line-up' });
-    }
-};
+exports.listarLineup = asyncHandler(async (req, res) => {
+    ok(res, await lineupService.listarLineupDoEvento(req.params.evento_id));
+});

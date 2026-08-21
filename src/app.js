@@ -2,70 +2,80 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const db = require('./database/db');
 
 const bandaRoutes = require('./routes/banda.routes');
 const eventoRoutes = require('./routes/evento.routes');
 const lineupRoutes = require('./routes/lineup.routes');
 const authRoutes = require('./routes/auth.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
+const { manipularErros, rotaNaoEncontrada } = require('./middlewares/erros');
+const logger = require('./utils/logger');
+const openapi = require('./docs/openapi.json');
 
 const app = express();
+const emProducao = process.env.NODE_ENV === 'production';
 
-const allowedOrigins = (process.env.CORS_ORIGINS || '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : [];
 
-app.disable('x-powered-by');
-app.use(helmet());
-app.use(cors({
-    origin: allowedOrigins.length > 0 ? allowedOrigins : false,
-    credentials: true,
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
-app.use(express.json({ limit: '1mb' }));
 
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { erro: 'Muitas requisições. Tente novamente mais tarde.' },
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const local = !emProducao && (
+            origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')
+        );
+        if (local || allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(null, false);
+    },
+    credentials: true
+}));
+
+app.use(express.json({ limit: '100kb' }));
+
+app.use((req, res, next) => {
+    if (req.path === '/health' || req.path === '/openapi.json') return next();
+    const inicio = Date.now();
+    res.on('finish', () => {
+        logger.info('http', {
+            metodo: req.method,
+            rota: req.originalUrl,
+            status: res.statusCode,
+            ms: Date.now() - inicio
+        });
+    });
+    next();
 });
 
-const authLimiter = rateLimit({
+app.use(rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 10,
+    max: 300,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { erro: 'Muitas tentativas de autenticação. Tente novamente mais tarde.' },
-});
+    message: { erro: 'Muitas requisições. Tente novamente em alguns minutos.' },
+    skip: (req) => req.path === '/health'
+}));
 
-app.use(limiter);
-app.use('/auth', authLimiter, authRoutes);
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/openapi.json', (_req, res) => res.json(openapi));
+
+app.use('/auth', authRoutes);
 app.use('/bandas', bandaRoutes);
 app.use('/eventos', eventoRoutes);
 app.use('/lineup', lineupRoutes);
 app.use('/dashboard', dashboardRoutes);
 
-app.get('/health', async (req, res) => {
-    try {
-        await db.promise().query('SELECT 1');
-        return res.status(200).json({ status: 'ok', database: 'ok' });
-    } catch (error) {
-        console.error('Health check do banco falhou:', error.message);
-        return res.status(503).json({ status: 'degraded', database: 'unavailable' });
-    }
-});
+app.get('/', (_req, res) => res.json({
+    mensagem: 'API Beco Underground operacional',
+    docs: '/openapi.json',
+    health: '/health'
+}));
 
-app.use((err, req, res, next) => {
-    console.error('Erro não tratado:', err);
-
-    if (res.headersSent) {
-        return next(err);
-    }
-
-    return res.status(500).json({ erro: 'Erro interno do servidor.' });
-});
+app.use(rotaNaoEncontrada);
+app.use(manipularErros);
 
 module.exports = app;

@@ -16,7 +16,6 @@ const createResponse = () => {
             return response;
         }
     };
-
     return response;
 };
 
@@ -84,7 +83,7 @@ test('permite perfil autorizado', () => {
 });
 
 test('bloqueia perfil não autorizado', () => {
-    const req = { usuario: { perfil: 'usuario' } };
+    const req = { usuario: { perfil: 'produtor' } };
     const res = createResponse();
     let nextCalled = false;
 
