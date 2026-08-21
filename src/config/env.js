@@ -40,10 +40,11 @@ const carregarEnv = () => {
     if (!jwtSecret) faltando.push('JWT_SECRET');
 
     if (faltando.length) {
-        throw new Error(
-            `Variável obrigatória ausente: ${faltando.join(', ')}. ` +
-            'No Render, use o MYSQL_PUBLIC_URL do Railway (host *.proxy.rlwy.net e porta pública).'
-        );
+        const soJwt = faltando.length === 1 && faltando[0] === 'JWT_SECRET';
+        const dica = soJwt
+            ? 'Coloque JWT_SECRET no .env (ou .env.local) da pasta api-eventos. Modelo em .env.example.'
+            : 'Confira DB_HOST, DB_USER, DB_NAME, DB_PASSWORD, DB_PORT e JWT_SECRET no .env.';
+        throw new Error(`Variável obrigatória ausente: ${faltando.join(', ')}. ${dica}`);
     }
 
     process.env.DB_HOST = hostFinal;

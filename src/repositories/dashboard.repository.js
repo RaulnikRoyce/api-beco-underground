@@ -18,7 +18,11 @@ exports.obterResumoDoEvento = (evento_id) => new Promise((resolve, reject) => {
         FROM lineup l
         JOIN bandas b ON l.banda_id = b.id
         WHERE l.evento_id = ?
-        ORDER BY l.horario ASC, b.nome ASC
+        ORDER BY
+            CASE WHEN l.horario IS NULL THEN 1 ELSE 0 END,
+            CASE WHEN HOUR(l.horario) < 12 THEN 1 ELSE 0 END,
+            l.horario ASC,
+            b.nome ASC
     `;
 
     db.query(sqlResumo, [evento_id], (err, resultResumo) => {

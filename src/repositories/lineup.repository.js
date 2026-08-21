@@ -1,6 +1,13 @@
 const db = require('../database/db');
 const { gerarTokenPublico } = require('../utils/token.publico');
 
+const ORDER_PALCO = `
+    CASE WHEN l.horario IS NULL THEN 1 ELSE 0 END,
+    CASE WHEN HOUR(l.horario) < 12 THEN 1 ELSE 0 END,
+    l.horario ASC,
+    b.nome ASC
+`;
+
 const SELECT_LINEUP = `
     SELECT
         l.id AS lineup_id,
@@ -39,7 +46,7 @@ exports.salvar = (evento_id, banda_id, horario, cache_negociado) => new Promise(
 });
 
 exports.buscarPorEvento = (evento_id) => new Promise((resolve, reject) => {
-    const sql = `${SELECT_LINEUP} WHERE l.evento_id = ? ORDER BY l.horario ASC, b.nome ASC`;
+    const sql = `${SELECT_LINEUP} WHERE l.evento_id = ? ORDER BY ${ORDER_PALCO}`;
     db.query(sql, [evento_id], (err, resultados) => {
         if (err) return reject(err);
         resolve(resultados);
@@ -50,7 +57,7 @@ exports.buscarPorEventos = (ids) => new Promise((resolve, reject) => {
     if (!ids.length) return resolve([]);
 
     const placeholders = ids.map(() => '?').join(',');
-    const sql = `${SELECT_LINEUP} WHERE l.evento_id IN (${placeholders}) ORDER BY l.horario ASC, b.nome ASC`;
+    const sql = `${SELECT_LINEUP} WHERE l.evento_id IN (${placeholders}) ORDER BY ${ORDER_PALCO}`;
 
     db.query(sql, ids, (err, resultados) => {
         if (err) return reject(err);
