@@ -7,6 +7,9 @@ exports.loginSchema = z.object({
 
 exports.registrarSchema = z.object({
     email: z.string().email('E-mail inválido'),
-    senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
-    perfil: z.enum(['admin', 'produtor']).optional()
+    senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres')
+});
+
+exports.alterarUsuarioSchema = z.object({
+    ativo: z.boolean()
 });

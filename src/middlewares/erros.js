@@ -13,7 +13,10 @@ exports.manipularErros = (err, req, res, next) => {
     }
 
     if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ erro: 'Registro duplicado' });
+        const duplicadoEmail = String(err.sqlMessage || '').includes('usuarios');
+        return res.status(409).json({
+            erro: duplicadoEmail ? 'E-mail já cadastrado' : 'Registro duplicado'
+        });
     }
 
     if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {

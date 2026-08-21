@@ -1,5 +1,11 @@
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env.local'), override: true });
+const path = require('path');
+const envDaSessao = Boolean(process.env.DB_HOST);
+
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+require('dotenv').config({
+    path: path.join(__dirname, '..', '.env.local'),
+    override: !envDaSessao
+});
 const bcrypt = require('bcryptjs');
 const db = require('../src/database/db');
 
@@ -8,6 +14,7 @@ const senha = process.env.SEED_ADMIN_PASSWORD || 'admin123';
 const perfil = 'admin';
 
 async function seed() {
+    console.log(`Seed em ${process.env.DB_HOST} / ${process.env.DB_NAME}`);
     const hash = await bcrypt.hash(senha, 10);
 
     db.query('SELECT id FROM usuarios WHERE email = ?', [email], (err, rows) => {

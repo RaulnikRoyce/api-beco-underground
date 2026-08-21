@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const authService = require('../services/auth.service');
 const { getJwtSecret } = require('../config/jwt');
 const { asyncHandler, AppError } = require('../utils/erros');
-const { criado } = require('../utils/resposta');
+const { ok, criado, mensagem } = require('../utils/resposta');
 
 exports.login = asyncHandler(async (req, res) => {
     const { email, senha } = req.body;
@@ -28,8 +28,21 @@ exports.login = asyncHandler(async (req, res) => {
 });
 
 exports.registrar = asyncHandler(async (req, res) => {
-    const { email, senha, perfil } = req.body;
-    const perfilFinal = req.usuario?.perfil === 'admin' ? (perfil || 'produtor') : 'produtor';
-    await authService.registrar(email, senha, perfilFinal);
-    criado(res, 'Usuário cadastrado');
+    const { email, senha } = req.body;
+    await authService.registrar(email, senha);
+    criado(res, 'Conta de produtor criada');
+});
+
+exports.listarUsuarios = asyncHandler(async (_req, res) => {
+    ok(res, await authService.listarUsuarios());
+});
+
+exports.definirAtivo = asyncHandler(async (req, res) => {
+    const usuario = await authService.definirAtivo(req.params.id, req.body.ativo, req.usuario);
+    res.json({ mensagem: usuario.ativo ? 'Conta ativada' : 'Conta desativada', usuario });
+});
+
+exports.excluirUsuario = asyncHandler(async (req, res) => {
+    await authService.excluirUsuario(req.params.id, req.usuario);
+    mensagem(res, 'Usuário excluído');
 });

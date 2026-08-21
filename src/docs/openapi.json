@@ -68,8 +68,28 @@
     },
     "/auth/registrar": {
       "post": {
-        "summary": "Cadastrar usuário (admin)",
-        "responses": { "201": { "description": "Usuário cadastrado" } }
+        "security": [],
+        "summary": "Cadastrar produtor (público)",
+        "responses": {
+          "201": { "description": "Conta de produtor criada" },
+          "409": { "description": "E-mail já cadastrado" }
+        }
+      }
+    },
+    "/auth/usuarios": {
+      "get": {
+        "summary": "Listar usuários (admin)",
+        "responses": { "200": { "description": "Array { id, email, perfil, ativo }" } }
+      }
+    },
+    "/auth/usuarios/{id}": {
+      "patch": {
+        "summary": "Ativar ou desativar usuário (admin)",
+        "responses": { "200": { "description": "{ mensagem, usuario }" } }
+      },
+      "delete": {
+        "summary": "Excluir usuário (admin)",
+        "responses": { "200": { "description": "Usuário excluído" } }
       }
     },
     "/eventos": {
