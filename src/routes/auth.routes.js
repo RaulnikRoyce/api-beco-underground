@@ -4,7 +4,7 @@ const router = express.Router();
 const authController = require('../controllers/auth.controller');
 const { verificarToken, verificarPerfil } = require('../middlewares/auth.middleware');
 const { validarSchema, validarId } = require('../middlewares/validador');
-const { loginSchema, registrarSchema, alterarUsuarioSchema } = require('../schemas/auth.schema');
+const { loginSchema, registrarSchema, alterarUsuarioSchema, redefinirSenhaSchema, trocarPropriaSenhaSchema } = require('../schemas/auth.schema');
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -17,6 +17,14 @@ const authLimiter = rateLimit({
 router.post('/login', authLimiter, validarSchema(loginSchema), authController.login);
 router.post('/registrar', authLimiter, validarSchema(registrarSchema), authController.registrar);
 
+router.patch(
+    '/senha',
+    authLimiter,
+    verificarToken,
+    validarSchema(trocarPropriaSenhaSchema),
+    authController.trocarPropriaSenha
+);
+
 router.get('/usuarios', verificarToken, verificarPerfil(['admin']), authController.listarUsuarios);
 router.patch(
     '/usuarios/:id',
@@ -25,6 +33,14 @@ router.patch(
     validarId('id'),
     validarSchema(alterarUsuarioSchema),
     authController.definirAtivo
+);
+router.patch(
+    '/usuarios/:id/senha',
+    verificarToken,
+    verificarPerfil(['admin']),
+    validarId('id'),
+    validarSchema(redefinirSenhaSchema),
+    authController.redefinirSenha
 );
 router.delete(
     '/usuarios/:id',

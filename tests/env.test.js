@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { parseMysqlUrl, limpar } = require('../src/config/env');
+const { usarSslMysql } = require('../src/config/mysql-ssl');
 
 test('parseMysqlUrl lê host público e porta do proxy', () => {
     const dados = parseMysqlUrl('mysql://root:s3nha@reseau.proxy.rlwy.net:56321/railway');
@@ -13,4 +14,10 @@ test('parseMysqlUrl lê host público e porta do proxy', () => {
 
 test('limpar remove aspas acidentais', () => {
     assert.equal(limpar('  "56321"  '), '56321');
+});
+
+test('usarSslMysql liga SSL no host Aiven mesmo sem DB_SSL', () => {
+    assert.equal(usarSslMysql('mysql-xxx.aivencloud.com', undefined), true);
+    assert.equal(usarSslMysql('localhost', undefined), false);
+    assert.equal(usarSslMysql('localhost', 'true'), true);
 });

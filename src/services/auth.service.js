@@ -5,7 +5,8 @@ const {
     contaAtiva,
     sanitizarUsuario,
     podeAlterarAtivo,
-    podeExcluirUsuario
+    podeExcluirUsuario,
+    podeRedefinirSenha
 } = require('../utils/usuario.regras');
 
 exports.autenticar = async (email, senha) => {
@@ -54,4 +55,27 @@ exports.excluirUsuario = async (id, ator) => {
     if (recusa) throw new AppError(alvo ? 403 : 404, recusa);
 
     await authRepository.excluir(id);
+};
+
+exports.redefinirSenha = async (id, senha, ator) => {
+    const alvo = await authRepository.buscarPorId(id);
+    const recusa = podeRedefinirSenha(alvo, ator);
+    if (recusa) throw new AppError(alvo ? 403 : 404, recusa);
+
+    const senhaCriptografada = await bcrypt.hash(senha, 10);
+    await authRepository.atualizarSenha(id, senhaCriptografada);
+    return sanitizarUsuario(alvo);
+};
+
+exports.trocarPropriaSenha = async (ator, senhaAtual, senhaNova) => {
+    const usuario = await authRepository.buscarPorIdComSenha(ator.id);
+    if (!usuario) throw new AppError(404, 'Usuário não encontrado');
+
+    const senhaValida = await bcrypt.compare(senhaAtual, usuario.senha);
+    if (!senhaValida) {
+        throw new AppError(403, 'Senha atual incorreta');
+    }
+
+    const senhaCriptografada = await bcrypt.hash(senhaNova, 10);
+    await authRepository.atualizarSenha(usuario.id, senhaCriptografada);
 };

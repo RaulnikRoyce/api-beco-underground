@@ -37,8 +37,11 @@
     "/health": {
       "get": {
         "security": [],
-        "summary": "Saúde da API",
-        "responses": { "200": { "description": "{ status: ok }" } }
+        "summary": "Saúde da API e do MySQL",
+        "responses": {
+          "200": { "description": "{ status: ok } — processo e banco" },
+          "503": { "description": "Banco indisponível" }
+        }
       }
     },
     "/auth/login": {
@@ -76,6 +79,15 @@
         }
       }
     },
+    "/auth/senha": {
+      "patch": {
+        "summary": "Trocar a própria senha (logado; exige senha atual)",
+        "responses": {
+          "200": { "description": "Senha atualizada" },
+          "403": { "description": "Senha atual incorreta" }
+        }
+      }
+    },
     "/auth/usuarios": {
       "get": {
         "summary": "Listar usuários (admin)",
@@ -90,6 +102,15 @@
       "delete": {
         "summary": "Excluir usuário (admin)",
         "responses": { "200": { "description": "Usuário excluído" } }
+      }
+    },
+    "/auth/usuarios/{id}/senha": {
+      "patch": {
+        "summary": "Redefinir senha de outro usuário (admin)",
+        "responses": {
+          "200": { "description": "Senha redefinida" },
+          "403": { "description": "Não redefine a própria conta" }
+        }
       }
     },
     "/eventos": {

@@ -12,6 +12,8 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 const { manipularErros, rotaNaoEncontrada } = require('./middlewares/erros');
 const logger = require('./utils/logger');
 const openapi = require('./docs/openapi.json');
+const db = require('./database/db');
+const { responderHealth } = require('./utils/saude');
 
 const app = express();
 const emProducao = process.env.NODE_ENV === 'production';
@@ -65,7 +67,7 @@ app.use(rateLimit({
     skip: (req) => req.path === '/health'
 }));
 
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/health', responderHealth(db));
 app.get('/openapi.json', (_req, res) => res.json(openapi));
 
 app.use('/auth', authRoutes);

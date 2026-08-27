@@ -1,10 +1,11 @@
 const dns = require('dns');
 const mysql = require('mysql2');
+const { usarSslMysql } = require('../config/mysql-ssl');
 
 dns.setDefaultResultOrder('ipv4first');
 
 const host = process.env.DB_HOST || '';
-const usarSsl = process.env.DB_SSL === 'true';
+const usarSsl = usarSslMysql(host);
 const porta = Number(process.env.DB_PORT) || 3306;
 
 const pool = mysql.createPool({

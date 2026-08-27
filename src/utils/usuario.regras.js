@@ -27,3 +27,9 @@ exports.podeExcluirUsuario = (alvo, ator, adminsAtivos) => {
     if (alvo.perfil === 'admin' && adminsAtivos <= 1) return 'Não é possível excluir o último admin';
     return null;
 };
+
+exports.podeRedefinirSenha = (alvo, ator) => {
+    if (!alvo) return 'Usuário não encontrado';
+    if (Number(alvo.id) === Number(ator.id)) return 'Você não pode redefinir a senha da própria conta por aqui';
+    return null;
+};

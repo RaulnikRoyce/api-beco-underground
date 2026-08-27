@@ -4,7 +4,8 @@ const {
     contaAtiva,
     sanitizarUsuario,
     podeAlterarAtivo,
-    podeExcluirUsuario
+    podeExcluirUsuario,
+    podeRedefinirSenha
 } = require('../src/utils/usuario.regras');
 
 test('conta ativa ignora TinyInt 1', () => {
@@ -62,5 +63,19 @@ test('não exclui a própria conta nem o último admin', () => {
     assert.equal(
         podeExcluirUsuario({ id: 2, perfil: 'admin' }, { id: 1 }, 1),
         'Não é possível excluir o último admin'
+    );
+});
+
+test('admin não redefine a própria senha por este fluxo', () => {
+    assert.equal(
+        podeRedefinirSenha({ id: 1, perfil: 'admin' }, { id: 1 }),
+        'Você não pode redefinir a senha da própria conta por aqui'
+    );
+});
+
+test('admin pode redefinir senha de outro usuário', () => {
+    assert.equal(
+        podeRedefinirSenha({ id: 3, perfil: 'produtor' }, { id: 1 }),
+        null
     );
 });

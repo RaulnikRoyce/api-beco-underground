@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const dns = require('dns');
 const mysql = require('mysql2/promise');
+const { usarSslMysql } = require('../src/config/mysql-ssl');
 
 dns.setDefaultResultOrder('ipv4first');
 
@@ -10,7 +11,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
 
 const host = process.env.DB_HOST || '';
 const porta = Number(process.env.DB_PORT) || 3306;
-const usarSsl = process.env.DB_SSL === 'true' || host.includes('aivencloud.com');
+const usarSsl = usarSslMysql(host);
 
 async function importar() {
     if (!host.includes('aivencloud.com')) {

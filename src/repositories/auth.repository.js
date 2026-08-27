@@ -16,6 +16,13 @@ exports.buscarPorId = (id) => new Promise((resolve, reject) => {
     });
 });
 
+exports.buscarPorIdComSenha = (id) => new Promise((resolve, reject) => {
+    db.query('SELECT * FROM usuarios WHERE id = ?', [id], (err, resultados) => {
+        if (err) return reject(err);
+        resolve(resultados[0] || null);
+    });
+});
+
 exports.listar = () => new Promise((resolve, reject) => {
     db.query(`${SELECT_PUBLICO} ORDER BY perfil ASC, email ASC`, (err, resultados) => {
         if (err) return reject(err);
@@ -59,5 +66,12 @@ exports.excluir = (id) => new Promise((resolve, reject) => {
     db.query('DELETE FROM usuarios WHERE id = ?', [id], (err, result) => {
         if (err) return reject(err);
         resolve(result.affectedRows > 0);
+    });
+});
+
+exports.atualizarSenha = (id, senhaCriptografada) => new Promise((resolve, reject) => {
+    db.query('UPDATE usuarios SET senha = ? WHERE id = ?', [senhaCriptografada, id], (err) => {
+        if (err) return reject(err);
+        resolve();
     });
 });

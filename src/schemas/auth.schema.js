@@ -13,3 +13,12 @@ exports.registrarSchema = z.object({
 exports.alterarUsuarioSchema = z.object({
     ativo: z.boolean()
 });
+
+exports.redefinirSenhaSchema = z.object({
+    senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres')
+});
+
+exports.trocarPropriaSenhaSchema = z.object({
+    senha_atual: z.string().min(1, 'Informe a senha atual'),
+    senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres')
+});

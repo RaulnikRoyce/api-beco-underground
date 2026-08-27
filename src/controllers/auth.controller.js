@@ -46,3 +46,13 @@ exports.excluirUsuario = asyncHandler(async (req, res) => {
     await authService.excluirUsuario(req.params.id, req.usuario);
     mensagem(res, 'Usuário excluído');
 });
+
+exports.redefinirSenha = asyncHandler(async (req, res) => {
+    await authService.redefinirSenha(req.params.id, req.body.senha, req.usuario);
+    mensagem(res, 'Senha redefinida');
+});
+
+exports.trocarPropriaSenha = asyncHandler(async (req, res) => {
+    await authService.trocarPropriaSenha(req.usuario, req.body.senha_atual, req.body.senha);
+    mensagem(res, 'Senha atualizada');
+});
