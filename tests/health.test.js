@@ -60,3 +60,22 @@ test('GET /health devolve 503 se o banco falha', async () => {
     assert.equal(res.statusCode, 503);
     assert.equal(res.body.status, 'erro');
 });
+
+test('GET /logo-beco.png devolve PNG', async () => {
+    const server = app.listen(0);
+    const { port } = server.address();
+
+    try {
+        const resposta = await fetch(`http://127.0.0.1:${port}/logo-beco.png`);
+        assert.equal(resposta.status, 200);
+        assert.match(resposta.headers.get('content-type') || '', /image\/png/);
+        const bytes = Buffer.from(await resposta.arrayBuffer());
+        assert.ok(bytes.length > 1000);
+        assert.equal(bytes[0], 0x89);
+        assert.equal(bytes[1], 0x50);
+        assert.equal(bytes[2], 0x4e);
+        assert.equal(bytes[3], 0x47);
+    } finally {
+        await new Promise((resolve) => server.close(resolve));
+    }
+});

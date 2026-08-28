@@ -3,7 +3,7 @@
   "info": {
     "title": "API Beco Underground",
     "version": "1.0.0",
-    "description": "Painel interno de produção: eventos, artistas, lineup e cachê."
+    "description": "Painel interno de produção, eventos, artistas, lineup e cachê."
   },
   "servers": [
     { "url": "http://localhost:3000", "description": "Local" },
@@ -34,12 +34,21 @@
   },
   "security": [{ "bearerAuth": [] }],
   "paths": {
+    "/logo-beco.png": {
+      "get": {
+        "security": [],
+        "summary": "Logo PNG do Beco Underground",
+        "responses": {
+          "200": { "description": "image/png" }
+        }
+      }
+    },
     "/health": {
       "get": {
         "security": [],
         "summary": "Saúde da API e do MySQL",
         "responses": {
-          "200": { "description": "{ status: ok } — processo e banco" },
+          "200": { "description": "{ status: ok } (processo e banco)" },
           "503": { "description": "Banco indisponível" }
         }
       }
@@ -109,7 +118,7 @@
         "summary": "Redefinir senha de outro usuário (admin)",
         "responses": {
           "200": { "description": "Senha redefinida" },
-          "403": { "description": "Não redefine a própria conta" }
+          "403": { "description": "A própria conta usa PATCH /auth/senha" }
         }
       }
     },
@@ -146,12 +155,12 @@
     "/publico/{token}": {
       "get": {
         "security": [],
-        "summary": "Página da banda: evento, horário e cachê dela (sem login)",
+        "summary": "Página da banda com evento, horário e cachê dela (sem login)",
         "parameters": [
           { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
         "responses": {
-          "200": { "description": "{ evento, voce, lineup } — lineup sem cachê das outras" },
+          "200": { "description": "{ evento, voce, lineup } (lineup sem cachê das outras)" },
           "404": { "description": "Link inválido" }
         }
       }

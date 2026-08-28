@@ -4,11 +4,11 @@ const { parseMysqlUrl, limpar } = require('../src/config/env');
 const { usarSslMysql } = require('../src/config/mysql-ssl');
 
 test('parseMysqlUrl lê host público e porta do proxy', () => {
-    const dados = parseMysqlUrl('mysql://root:s3nha@reseau.proxy.rlwy.net:56321/railway');
-    assert.equal(dados.host, 'reseau.proxy.rlwy.net');
+    const dados = parseMysqlUrl('mysql://root:s3nha@db.example.test:56321/beco_test');
+    assert.equal(dados.host, 'db.example.test');
     assert.equal(dados.port, '56321');
     assert.equal(dados.user, 'root');
-    assert.equal(dados.database, 'railway');
+    assert.equal(dados.database, 'beco_test');
     assert.equal(dados.password, 's3nha');
 });
 

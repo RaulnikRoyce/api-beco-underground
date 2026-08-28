@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -45,7 +46,7 @@ app.use(cors({
 app.use(express.json({ limit: '100kb' }));
 
 app.use((req, res, next) => {
-    if (req.path === '/health' || req.path === '/openapi.json') return next();
+    if (req.path === '/health' || req.path === '/openapi.json' || req.path === '/logo-beco.png') return next();
     const inicio = Date.now();
     res.on('finish', () => {
         logger.info('http', {
@@ -64,11 +65,14 @@ app.use(rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     message: { erro: 'Muitas requisições. Tente novamente em alguns minutos.' },
-    skip: (req) => req.path === '/health'
+    skip: (req) => req.path === '/health' || req.path === '/logo-beco.png'
 }));
 
 app.get('/health', responderHealth(db));
 app.get('/openapi.json', (_req, res) => res.json(openapi));
+app.get('/logo-beco.png', (_req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'logo-beco.png'));
+});
 
 app.use('/auth', authRoutes);
 app.use('/publico', publicoRoutes);
@@ -80,7 +84,8 @@ app.use('/dashboard', dashboardRoutes);
 app.get('/', (_req, res) => res.json({
     mensagem: 'API Beco Underground operacional',
     docs: '/openapi.json',
-    health: '/health'
+    health: '/health',
+    logo: '/logo-beco.png'
 }));
 
 app.use(rotaNaoEncontrada);
