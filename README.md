@@ -4,7 +4,7 @@
 
 API REST para gestão de eventos independentes (lineup, artistas e cachê).
 
-**Demo** [https://gestaobeco.netlify.app/](https://gestaobeco.netlify.app/)  
+**Demo** [https://demo.raulnikroyce.dev/](https://demo.raulnikroyce.dev/)  
 **Painel** [frontend-beco-underground](https://github.com/RaulnikRoyce/frontend-beco-underground) · **API** este repositório
 
 Produção usa Vue no Netlify, esta API no [Render](https://api-beco-underground.onrender.com) e MySQL na Aiven.

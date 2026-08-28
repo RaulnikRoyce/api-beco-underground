@@ -12,7 +12,7 @@
 | `JWT_SECRET` | Obrigatório. O boot exige esta variável e registra `JWT_SECRET` no log quando ela falta |
 | `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT` | MySQL na Aiven (host público e porta pública) |
 | `DB_SSL` | `true` na Aiven (também liga sozinho se o host for `*.aivencloud.com`) |
-| `CORS_ORIGIN` | `https://gestaobeco.netlify.app` (origem exata do painel) |
+| `CORS_ORIGIN` | `https://demo.raulnikroyce.dev` (origem exata do painel) |
 
 Gere o segredo no seu PC e evite colar no GitHub.
 
@@ -34,6 +34,6 @@ Evite commitar senha. Evite colar `DB_PASSWORD` no chat.
 
 ## Checagem
 
-- Painel `https://gestaobeco.netlify.app/`
+- Painel `https://demo.raulnikroyce.dev/`
 - `GET https://api-beco-underground.onrender.com/health` responde `{ "status": "ok" }` (503 se o MySQL não responder)
 - `GET /openapi.json` contrato das rotas
