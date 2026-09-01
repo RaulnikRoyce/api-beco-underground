@@ -235,7 +235,9 @@ async function migrar({ log = () => {} } = {}) {
             log(`Tokens gerados para ${semToken.length} escalação(ões)`);
         }
 
-        const [semSlug] = await conn.query('SELECT id, nome FROM eventos WHERE slug IS NULL OR slug = ""');
+        const [semSlug] = await conn.query(
+            "SELECT id, nome FROM eventos WHERE slug IS NULL OR slug = ''"
+        );
         for (const row of semSlug) {
             const base = gerarSlugBase(row.nome);
             const slug = await slugUnico(conn, base, row.id);
