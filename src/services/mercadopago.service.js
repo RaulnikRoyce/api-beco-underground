@@ -4,7 +4,9 @@ const MP_API = 'https://api.mercadopago.com';
 
 const token = () => {
     const t = process.env.MP_ACCESS_TOKEN;
-    if (!t) throw new AppError(503, 'Pagamento indisponível. Configure MP_ACCESS_TOKEN.');
+    if (!t) {
+        throw new AppError(503, 'Pagamento temporariamente indisponível. Tente mais tarde ou fale com a produção do evento.');
+    }
     return t;
 };
 
