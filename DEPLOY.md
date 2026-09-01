@@ -12,7 +12,10 @@
 | `JWT_SECRET` | Obrigatório. O boot exige esta variável e registra `JWT_SECRET` no log quando ela falta |
 | `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT` | MySQL na Aiven (host público e porta pública) |
 | `DB_SSL` | `true` na Aiven (também liga sozinho se o host for `*.aivencloud.com`) |
-| `CORS_ORIGIN` | `https://demo.raulnikroyce.dev` (origem exata do painel) |
+| `CORS_ORIGIN` | `https://demo.raulnikroyce.dev,https://ingressosbeco.raulnikroyce.dev` |
+| `MP_ACCESS_TOKEN` | Token Mercado Pago (Checkout Pro) |
+| `LOJA_INGRESSOS_URL` | `https://ingressosbeco.raulnikroyce.dev` (back_urls MP) |
+| `API_PUBLIC_URL` | `https://api-beco-underground.onrender.com` (notification_url webhook) |
 
 Gere o segredo no seu PC e evite colar no GitHub.
 

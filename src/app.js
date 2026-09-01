@@ -10,6 +10,7 @@ const lineupRoutes = require('./routes/lineup.routes');
 const authRoutes = require('./routes/auth.routes');
 const publicoRoutes = require('./routes/publico.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
+const pedidoRoutes = require('./routes/pedido.routes');
 const { manipularErros, rotaNaoEncontrada } = require('./middlewares/erros');
 const logger = require('./utils/logger');
 const openapi = require('./docs/openapi.json');
@@ -80,6 +81,7 @@ app.use('/bandas', bandaRoutes);
 app.use('/eventos', eventoRoutes);
 app.use('/lineup', lineupRoutes);
 app.use('/dashboard', dashboardRoutes);
+app.use('/ingressos', pedidoRoutes);
 
 app.get('/', (_req, res) => res.json({
     mensagem: 'API Beco Underground operacional',

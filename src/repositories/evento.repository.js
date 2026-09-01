@@ -6,7 +6,10 @@ const ORDENAR = {
     nome: 'nome ASC'
 };
 
-const SELECT_EVENTO = "SELECT id, nome, DATE_FORMAT(data, '%Y-%m-%d') AS data, local, criado_por FROM eventos";
+const SELECT_EVENTO = `SELECT id, nome, DATE_FORMAT(data, '%Y-%m-%d') AS data, local, criado_por,
+    slug, publico_esperado, capacidade_maxima, margem_percentual, venda_publicada,
+    taxa_mp_percentual, repassa_taxa_comprador
+FROM eventos`;
 
 exports.buscarTodos = ({ q, ordenar = 'data_desc', limite, offset } = {}) => new Promise((resolve, reject) => {
     const params = [];
@@ -52,13 +55,13 @@ exports.buscarPorId = (id) => new Promise((resolve, reject) => {
     });
 });
 
-exports.salvar = ({ nome, data, local, criado_por }) => new Promise((resolve, reject) => {
+exports.salvar = ({ nome, data, local, criado_por, slug }) => new Promise((resolve, reject) => {
     db.query(
-        'INSERT INTO eventos (nome, data, local, criado_por) VALUES (?, ?, ?, ?)',
-        [nome, data, local, criado_por || null],
+        'INSERT INTO eventos (nome, data, local, criado_por, slug) VALUES (?, ?, ?, ?, ?)',
+        [nome, data, local, criado_por || null, slug || null],
         (err, result) => {
             if (err) return reject(err);
-            resolve({ id: result.insertId, nome, data, local, criado_por });
+            exports.buscarPorId(result.insertId).then(resolve).catch(reject);
         }
     );
 });

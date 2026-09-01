@@ -1,55 +1,12 @@
-CREATE DATABASE IF NOT EXISTS beco_underground CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE beco_underground;
+-- Ingressos: colunas em eventos + tabelas de custos, lotes e esqueleto de pedidos
 
-CREATE TABLE IF NOT EXISTS usuarios (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    senha VARCHAR(255) NOT NULL,
-    perfil ENUM('admin', 'produtor') NOT NULL DEFAULT 'produtor',
-    ativo TINYINT(1) NOT NULL DEFAULT 1
-);
-
-CREATE TABLE IF NOT EXISTS eventos (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nome VARCHAR(255) NOT NULL,
-    data DATE NOT NULL,
-    local VARCHAR(255) NOT NULL,
-    criado_por INT NULL,
-    slug VARCHAR(120) NULL UNIQUE,
-    publico_esperado INT UNSIGNED NULL,
-    capacidade_maxima INT UNSIGNED NULL,
-    margem_percentual DECIMAL(5, 2) NULL DEFAULT 15.00,
-    venda_publicada TINYINT(1) NOT NULL DEFAULT 0,
-    taxa_mp_percentual DECIMAL(5, 2) NULL DEFAULT 4.99,
-    repassa_taxa_comprador TINYINT(1) NOT NULL DEFAULT 0,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_eventos_criado_por ON eventos(criado_por);
-
-CREATE TABLE IF NOT EXISTS bandas (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nome VARCHAR(255) NOT NULL,
-    genero VARCHAR(100),
-    contato VARCHAR(120),
-    descricao TEXT NULL,
-    cache_base DECIMAL(10, 2) NOT NULL DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS lineup (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    evento_id INT NOT NULL,
-    banda_id INT NOT NULL,
-    horario TIME NULL,
-    cache_negociado DECIMAL(10, 2) NULL,
-    token_publico VARCHAR(64) NULL UNIQUE,
-    UNIQUE KEY unique_escalacao (evento_id, banda_id),
-    FOREIGN KEY (evento_id) REFERENCES eventos(id) ON DELETE CASCADE,
-    FOREIGN KEY (banda_id) REFERENCES bandas(id) ON DELETE RESTRICT
-);
-
-CREATE INDEX idx_lineup_evento ON lineup(evento_id);
-CREATE INDEX idx_lineup_banda ON lineup(banda_id);
+ALTER TABLE eventos ADD COLUMN slug VARCHAR(120) NULL UNIQUE;
+ALTER TABLE eventos ADD COLUMN publico_esperado INT UNSIGNED NULL;
+ALTER TABLE eventos ADD COLUMN capacidade_maxima INT UNSIGNED NULL;
+ALTER TABLE eventos ADD COLUMN margem_percentual DECIMAL(5, 2) NULL DEFAULT 15.00;
+ALTER TABLE eventos ADD COLUMN venda_publicada TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE eventos ADD COLUMN taxa_mp_percentual DECIMAL(5, 2) NULL DEFAULT 4.99;
+ALTER TABLE eventos ADD COLUMN repassa_taxa_comprador TINYINT(1) NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS custos_evento (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -93,8 +50,6 @@ CREATE TABLE IF NOT EXISTS pedidos_ingresso (
     total DECIMAL(10, 2) NOT NULL DEFAULT 0,
     taxa_estimada DECIMAL(10, 2) NULL,
     expires_at DATETIME NULL,
-    cupom_id INT NULL,
-    desconto_aplicado DECIMAL(10, 2) NULL DEFAULT 0,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (evento_id) REFERENCES eventos(id) ON DELETE CASCADE
 );
@@ -130,26 +85,3 @@ CREATE TABLE IF NOT EXISTS ingressos_emitidos (
 
 CREATE INDEX idx_ingressos_pedido ON ingressos_emitidos(pedido_id);
 CREATE INDEX idx_ingressos_codigo ON ingressos_emitidos(codigo);
-
-CREATE TABLE IF NOT EXISTS cupons (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    evento_id INT NOT NULL,
-    codigo VARCHAR(40) NOT NULL,
-    desconto_percentual DECIMAL(5, 2) NOT NULL,
-    uso_max INT UNSIGNED NULL,
-    uso_atual INT UNSIGNED NOT NULL DEFAULT 0,
-    ativo TINYINT(1) NOT NULL DEFAULT 1,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_cupom_evento (evento_id, codigo),
-    FOREIGN KEY (evento_id) REFERENCES eventos(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS lista_espera (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    evento_id INT NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    avisado_em DATETIME NULL,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_lista_evento_email (evento_id, email),
-    FOREIGN KEY (evento_id) REFERENCES eventos(id) ON DELETE CASCADE
-);

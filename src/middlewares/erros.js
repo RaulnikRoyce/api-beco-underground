@@ -20,7 +20,16 @@ exports.manipularErros = (err, req, res, next) => {
     }
 
     if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
-        return res.status(409).json({ erro: 'Banda escalada em eventos. Remova da lineup primeiro.' });
+        const detalhe = `${err.sqlMessage || ''} ${req.originalUrl || ''}`.toLowerCase();
+        const eLote = detalhe.includes('/lotes')
+            || detalhe.includes('lotes_ingresso')
+            || detalhe.includes('itens_pedido')
+            || detalhe.includes('ingressos_emitidos');
+        return res.status(409).json({
+            erro: eLote
+                ? 'Há pedidos ou ingressos neste lote. Cancele os pedidos antes de excluir.'
+                : 'Banda escalada em eventos. Remova da lineup primeiro.'
+        });
     }
 
     logger.error('Erro não tratado', {

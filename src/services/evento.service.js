@@ -3,6 +3,7 @@ const lineupRepository = require('../repositories/lineup.repository');
 const { AppError } = require('../utils/erros');
 const { envelope } = require('../utils/paginacao');
 const { podeExcluirEvento, podeEditarEvento, agruparLineups } = require('../utils/evento.regras');
+const { gerarSlugBase, garantirSlugUnico } = require('../utils/slug');
 
 exports.podeExcluirEvento = podeExcluirEvento;
 exports.podeEditarEvento = podeEditarEvento;
@@ -30,8 +31,10 @@ exports.listarEventos = async (query = {}) => {
 
 exports.obterEventoPorId = (id) => eventoRepository.buscarPorId(id);
 
-exports.adicionarEvento = (dados, usuario) =>
-    eventoRepository.salvar({ ...dados, criado_por: usuario.id });
+exports.adicionarEvento = async (dados, usuario) => {
+    const slug = await garantirSlugUnico(gerarSlugBase(dados.nome));
+    return eventoRepository.salvar({ ...dados, criado_por: usuario.id, slug });
+};
 
 exports.excluirEvento = async (id, usuario) => {
     const evento = await eventoRepository.buscarPorId(id);

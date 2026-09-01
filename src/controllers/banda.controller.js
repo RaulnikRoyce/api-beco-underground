@@ -17,6 +17,10 @@ exports.adicionarBanda = asyncHandler(async (req, res) => {
     criado(res, 'Banda cadastrada', { banda });
 });
 
+exports.atualizarBanda = asyncHandler(async (req, res) => {
+    ok(res, await bandaService.atualizarBanda(req.params.id, req.body));
+});
+
 exports.excluirBanda = asyncHandler(async (req, res) => {
     await bandaService.excluirBanda(req.params.id);
     mensagem(res, 'Banda excluída');
