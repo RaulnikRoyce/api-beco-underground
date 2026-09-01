@@ -7,7 +7,7 @@ API REST para gestão de eventos independentes (lineup, artistas, cachê e ingre
 **Demo** [https://demo.raulnikroyce.dev/](https://demo.raulnikroyce.dev/) · **Loja** [https://ingressosbeco.raulnikroyce.dev](https://ingressosbeco.raulnikroyce.dev)  
 **Painel** [frontend-beco-underground](https://github.com/RaulnikRoyce/frontend-beco-underground) · **Ingressos** [frontend-beco-ingressos](https://github.com/RaulnikRoyce/frontend-beco-ingressos) · **API** este repositório
 
-Produção usa Vue no Netlify, esta API no [Render](https://api-beco-underground.onrender.com) e MySQL na Aiven.
+Produção usa os frontends Vue no Vercel, esta API no [Render](https://api-beco-underground.onrender.com) e MySQL na Aiven.
 
 ## Sobre este projeto
 
