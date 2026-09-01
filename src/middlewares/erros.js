@@ -12,6 +12,10 @@ exports.manipularErros = (err, req, res, next) => {
         return res.status(err.status).json(corpo);
     }
 
+    if (err.code === 'ER_TRUNCATED_WRONG_VALUE' || err.code === 'ER_WRONG_VALUE') {
+        return res.status(400).json({ erro: 'Data ou valor inválido' });
+    }
+
     if (err.code === 'ER_DUP_ENTRY') {
         const duplicadoEmail = String(err.sqlMessage || '').includes('usuarios');
         return res.status(409).json({

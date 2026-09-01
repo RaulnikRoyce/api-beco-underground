@@ -1,5 +1,6 @@
 const db = require('../database/db');
 const dashboardRepository = require('./dashboard.repository');
+const { paraMysqlDatetime } = require('../utils/mysql-datetime');
 
 const CAMPOS_EVENTO_INGRESSO = `
     slug,
@@ -139,8 +140,8 @@ exports.criarLote = (dados) => new Promise((resolve, reject) => {
             dados.preco,
             dados.quantidade_total,
             dados.ordem ?? 0,
-            dados.inicio_venda || null,
-            dados.fim_venda || null,
+            paraMysqlDatetime(dados.inicio_venda),
+            paraMysqlDatetime(dados.fim_venda),
             dados.ativo ?? 1
         ],
         (err, result) => {
@@ -158,7 +159,10 @@ exports.atualizarLote = (loteId, eventoId, dados) => new Promise((resolve, rejec
     permitidos.forEach((campo) => {
         if (dados[campo] !== undefined) {
             campos.push(`${campo} = ?`);
-            params.push(dados[campo]);
+            const valor = (campo === 'inicio_venda' || campo === 'fim_venda')
+                ? paraMysqlDatetime(dados[campo])
+                : dados[campo];
+            params.push(valor);
         }
     });
 
