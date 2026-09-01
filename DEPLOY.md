@@ -31,7 +31,7 @@ Em produção o CORS aceita só as origens listadas em `CORS_ORIGIN`.
 
 A API no Render alcança o host público da Aiven (`*.aivencloud.com`) e a porta pública (em geral uma porta alta, distinta de 3306). MySQL na Aiven exige TLS. Use `DB_SSL=true` ou um host Aiven.
 
-Importe `database/schema-cloud.sql` (ou rode `npm run import:schema` com as variáveis da Aiven na sessão). Se o banco já existia sem `ativo` / `token_publico`, rode `npm run migrate`.
+Importe `database/schema-cloud.sql` (ou rode `npm run import:schema` com as variáveis da Aiven na sessão). Em produção a API roda `npm run migrate` automaticamente no boot. Para forçar antes de um deploy, rode `npm run migrate` no PC com as variáveis da Aiven na sessão.
 
 Evite commitar senha. Evite colar `DB_PASSWORD` no chat.
 
