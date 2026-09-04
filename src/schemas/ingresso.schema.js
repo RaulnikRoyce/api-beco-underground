@@ -65,5 +65,5 @@ exports.precificacaoQuery = z.object({
 });
 
 exports.previewQuery = z.object({
-    preview: z.enum(['0', '1']).optional()
+    preview_token: z.string().trim().min(1).max(2048).optional()
 });

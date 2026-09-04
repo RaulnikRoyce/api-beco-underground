@@ -7,7 +7,7 @@ exports.loginSchema = z.object({
 
 exports.registrarSchema = z.object({
     email: z.string().email('E-mail inválido'),
-    senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres')
+    senha: z.string().min(12, 'Senha deve ter no mínimo 12 caracteres').max(128)
 });
 
 exports.alterarUsuarioSchema = z.object({
@@ -15,10 +15,10 @@ exports.alterarUsuarioSchema = z.object({
 });
 
 exports.redefinirSenhaSchema = z.object({
-    senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres')
+    senha: z.string().min(12, 'Senha deve ter no mínimo 12 caracteres').max(128)
 });
 
 exports.trocarPropriaSenhaSchema = z.object({
     senha_atual: z.string().min(1, 'Informe a senha atual'),
-    senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres')
+    senha: z.string().min(12, 'Senha deve ter no mínimo 12 caracteres').max(128)
 });

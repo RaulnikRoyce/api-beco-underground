@@ -1,8 +1,22 @@
 const bandaRepository = require('../repositories/banda.repository');
 const { AppError } = require('../utils/erros');
 
-exports.listarBandas = () => bandaRepository.buscarTodas();
-exports.obterBandaPorId = (id) => bandaRepository.buscarPorId(id);
+const limitarDadosFinanceiros = (banda, usuario) => {
+    if (!banda || usuario?.perfil === 'admin') return banda;
+    const dadosPermitidos = { ...banda };
+    delete dadosPermitidos.contato;
+    delete dadosPermitidos.cache_base;
+    return dadosPermitidos;
+};
+
+exports.listarBandas = async (usuario) => {
+    const bandas = await bandaRepository.buscarTodas();
+    return bandas.map((banda) => limitarDadosFinanceiros(banda, usuario));
+};
+exports.obterBandaPorId = async (id, usuario) => limitarDadosFinanceiros(
+    await bandaRepository.buscarPorId(id),
+    usuario
+);
 exports.adicionarBanda = (dados) => bandaRepository.salvar(dados);
 
 exports.atualizarBanda = async (id, dados) => {

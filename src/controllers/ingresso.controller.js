@@ -89,6 +89,9 @@ exports.listarEventosPublicos = asyncHandler(async (req, res) => {
 });
 
 exports.obterEventoPublico = asyncHandler(async (req, res) => {
-    const preview = req.query.preview === '1';
-    ok(res, await ingressoService.obterEventoPublico(req.params.slugOuId, preview));
+    ok(res, await ingressoService.obterEventoPublico(req.params.slugOuId, req.query.preview_token));
+});
+
+exports.criarTokenPreview = asyncHandler(async (req, res) => {
+    ok(res, await ingressoService.criarTokenPreview(req.params.evento_id, req.usuario));
 });

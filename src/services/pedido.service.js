@@ -9,12 +9,27 @@ const eventoRepository = require('../repositories/evento.repository');
 const { AppError } = require('../utils/erros');
 const { podeEditarEvento } = require('../utils/evento.regras');
 const { obterLoteVigente, restamDoLote } = require('../utils/lote.regras');
+const logger = require('../utils/logger');
 
 const MAX_POR_PEDIDO = Number(process.env.INGRESSOS_MAX_POR_PEDIDO) || 4;
 const MAX_POR_EMAIL = Number(process.env.INGRESSOS_MAX_POR_EMAIL) || 4;
 const RESERVA_MIN = Number(process.env.INGRESSOS_RESERVA_MIN) || 15;
 
 const arredondar = (v) => Math.round(Number(v) * 100) / 100;
+const emCentavos = (valor) => Math.round(Number(valor) * 100);
+
+const escaparHtml = (valor) => String(valor ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const celulaCsv = (valor) => {
+    let texto = String(valor ?? '').replace(/[\r\n]+/g, ' ');
+    if (/^[=+\-@\t]/.test(texto)) texto = `'${texto}`;
+    return `"${texto.replace(/"/g, '""')}"`;
+};
 
 const calcularTaxa = (total, config) => {
     const pct = Number(config?.taxa_mp_percentual) || 0;
@@ -58,21 +73,21 @@ exports.confirmarPagamentoPedido = async (pedido, mpPaymentId) => {
     const itens = await pedidoRepository.buscarItensPedido(pedido.id);
     if (!itens.length) throw new AppError(500, 'Pedido sem itens');
 
-    await db.comTransacao(async (exec) => {
+    const pagamentoConfirmadoAgora = await db.comTransacao(async (exec) => {
         const marcado = await exec(
             `UPDATE pedidos_ingresso SET status = 'pago', mp_payment_id = ?
              WHERE id = ? AND status = 'pendente'`,
             [mpPaymentId, pedido.id]
         );
-        if (!marcado.affectedRows) return;
+        if (!marcado.affectedRows) return false;
 
         for (const item of itens) {
             await pedidoRepository.confirmarVendaLote(exec, item.lote_id, item.quantidade);
         }
+        return true;
     });
 
-    const pedidoAtual = await pedidoRepository.buscarPorId(pedido.id);
-    if (pedidoAtual?.status !== 'pago') return { jaPago: true };
+    if (!pagamentoConfirmadoAgora) return { jaPago: true };
 
     if (pedido.cupom_id) await cupomRepository.incrementarUso(pedido.cupom_id);
 
@@ -216,6 +231,18 @@ exports.processarWebhook = async (body) => {
     const pedido = await pedidoRepository.buscarPorCodigo(codigo);
     if (!pedido) return { ignorado: true };
 
+    const pagamentoCorresponde = String(pagamento.external_reference) === String(pedido.codigo_publico)
+        && pagamento.currency_id === 'BRL'
+        && emCentavos(pagamento.transaction_amount) === emCentavos(pedido.total);
+
+    if (!pagamentoCorresponde) {
+        logger.warn('Pagamento rejeitado por divergência', {
+            pedido_id: pedido.id,
+            payment_id: paymentId
+        });
+        throw new AppError(400, 'Pagamento não corresponde ao pedido');
+    }
+
     if (pedido.mp_payment_id === paymentId && pedido.status === 'pago') {
         return { jaProcessado: true };
     }
@@ -271,7 +298,11 @@ exports.checkin = async (codigo, usuario) => {
         return { valido: false, motivo: 'cancelado', ingresso };
     }
 
-    await pedidoRepository.marcarIngressoUsado(codigo, usuario.id);
+    const marcado = await pedidoRepository.marcarIngressoUsado(codigo, usuario.id);
+    if (!marcado) {
+        const ingressoAtual = await pedidoRepository.buscarIngressoPorCodigo(codigo);
+        return { valido: false, motivo: 'ja_usado', ingresso: ingressoAtual };
+    }
     return { valido: true, ingresso: { ...ingresso, status: 'usado' } };
 };
 
@@ -289,15 +320,15 @@ exports.compradoresCsv = async (eventoId, usuario, filtros) => {
     const linhas = ['nome,email,status,canal,lote,quantidade,total,criado_em'];
     lista.forEach((row) => {
         linhas.push([
-            `"${String(row.nome).replace(/"/g, '""')}"`,
+            row.nome,
             row.email,
             row.status,
             row.canal,
-            `"${String(row.lote_nome).replace(/"/g, '""')}"`,
+            row.lote_nome,
             row.quantidade,
             row.total,
             row.criado_em
-        ].join(','));
+        ].map(celulaCsv).join(','));
     });
     return linhas.join('\n');
 };
@@ -309,15 +340,17 @@ exports.listaPortaHtml = async (eventoId, usuario) => {
 
     const compradores = await pedidoRepository.listarCompradores(eventoId, { status: 'pago' });
     const rows = compradores.map((c) =>
-        `<tr><td>${c.nome}</td><td>${c.email}</td><td>${c.lote_nome}</td><td>${c.quantidade}</td></tr>`
+        `<tr><td>${escaparHtml(c.nome)}</td><td>${escaparHtml(c.email)}</td><td>${escaparHtml(c.lote_nome)}</td><td>${escaparHtml(c.quantidade)}</td></tr>`
     ).join('');
 
-    return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Lista porta · ${evento.nome}</title>
+    return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Lista porta · ${escaparHtml(evento.nome)}</title>
 <style>body{font-family:sans-serif;padding:24px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:8px;text-align:left}</style>
-</head><body><h1>${evento.nome}</h1><p>${evento.data} · ${evento.local}</p>
+</head><body><h1>${escaparHtml(evento.nome)}</h1><p>${escaparHtml(evento.data)} · ${escaparHtml(evento.local)}</p>
 <table><thead><tr><th>Nome</th><th>E-mail</th><th>Lote</th><th>Qtd</th></tr></thead><tbody>${rows}</tbody></table>
 <script>window.print()</script></body></html>`;
 };
+
+exports._seguranca = { escaparHtml, celulaCsv, emCentavos };
 
 exports.inscreverListaEspera = async (eventoId, email) => {
     const evento = await ingressoRepository.buscarConfigEvento(eventoId);

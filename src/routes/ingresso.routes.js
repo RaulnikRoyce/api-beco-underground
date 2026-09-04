@@ -108,6 +108,13 @@ router.patch(
     ingressoController.publicarVenda
 );
 router.post(
+    '/ingressos/preview-token',
+    verificarToken,
+    verificarPerfil(['admin']),
+    validarId('evento_id'),
+    ingressoController.criarTokenPreview
+);
+router.post(
     '/ingressos/cortesia',
     verificarToken,
     verificarPerfil(['admin']),

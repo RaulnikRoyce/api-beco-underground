@@ -52,7 +52,7 @@ app.use((req, res, next) => {
     res.on('finish', () => {
         logger.info('http', {
             metodo: req.method,
-            rota: req.originalUrl,
+            rota: req.path,
             status: res.statusCode,
             ms: Date.now() - inicio
         });

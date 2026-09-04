@@ -9,13 +9,14 @@ exports.podeExcluirEvento = podeExcluirEvento;
 exports.podeEditarEvento = podeEditarEvento;
 exports.agruparLineups = agruparLineups;
 
-exports.listarEventos = async (query = {}) => {
+exports.listarEventos = async (query = {}, usuario) => {
     const { q, include, ordenar = 'data_desc', page, limit } = query;
     const paginar = Boolean(page);
     const limite = paginar ? Math.min(50, Number(limit) || 20) : undefined;
     const offset = paginar ? (Number(page) - 1) * limite : undefined;
 
-    const eventos = await eventoRepository.buscarTodos({ q, ordenar, limite, offset });
+    const criadoPor = usuario?.perfil === 'admin' ? undefined : usuario?.id;
+    const eventos = await eventoRepository.buscarTodos({ q, ordenar, limite, offset, criadoPor });
 
     let lista = eventos;
     if (include === 'lineup' && eventos.length) {
@@ -25,11 +26,16 @@ exports.listarEventos = async (query = {}) => {
 
     if (!paginar) return lista;
 
-    const total = await eventoRepository.contar({ q });
+    const total = await eventoRepository.contar({ q, criadoPor });
     return envelope(lista, Number(page), limite, total);
 };
 
-exports.obterEventoPorId = (id) => eventoRepository.buscarPorId(id);
+exports.obterEventoPorId = async (id, usuario) => {
+    const evento = await eventoRepository.buscarPorId(id);
+    if (!evento) return null;
+    if (!podeEditarEvento(evento, usuario)) throw new AppError(403, 'Sem permissão para ver este evento');
+    return evento;
+};
 
 exports.adicionarEvento = async (dados, usuario) => {
     const slug = await garantirSlugUnico(gerarSlugBase(dados.nome));

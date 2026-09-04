@@ -18,10 +18,18 @@ const limitePedidos = rateLimit({
     message: { erro: 'Muitas tentativas de compra. Aguarde alguns minutos.' }
 });
 
+const limiteWebhook = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { erro: 'Muitas notificações.' }
+});
+
 router.post('/pedidos', limitePedidos, validarSchema(pedidoSchema), pedidoController.criarPedido);
 router.get('/pedidos/:codigo', pedidoController.obterPedido);
 router.get('/emitidos/:codigo', pedidoController.obterIngresso);
-router.post('/webhook', pedidoController.webhook);
+router.post('/webhook', limiteWebhook, pedidoController.webhook);
 router.post('/recuperar', validarSchema(recuperarSchema), pedidoController.recuperarIngresso);
 router.post('/lista-espera', validarSchema(listaEsperaSchema), pedidoController.inscreverListaEspera);
 

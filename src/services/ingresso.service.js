@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { gerarTokenPreview, validarTokenPreview } = require('../utils/preview.token');
 const db = require('../database/db');
 const eventoRepository = require('../repositories/evento.repository');
 const ingressoRepository = require('../repositories/ingresso.repository');
@@ -335,7 +336,7 @@ exports.listarEventosPublicos = async () => {
     return comLotes.filter((evento) => evento.lote_vigente);
 };
 
-exports.obterEventoPublico = async (slugOuId, preview = false) => {
+exports.obterEventoPublico = async (slugOuId, previewToken) => {
     let evento = null;
     const numerico = /^\d+$/.test(String(slugOuId));
 
@@ -347,7 +348,7 @@ exports.obterEventoPublico = async (slugOuId, preview = false) => {
 
     if (!evento) throw new AppError(404, 'Evento não encontrado');
 
-    if (!preview && !evento.venda_publicada) {
+    if (!evento.venda_publicada && !validarTokenPreview(previewToken, evento.id)) {
         throw new AppError(404, 'Venda não publicada');
     }
 
@@ -377,6 +378,12 @@ exports.obterEventoPublico = async (slugOuId, preview = false) => {
         lotes: lotesPublicos,
         lote_vigente: vigente
     };
+};
+
+exports.criarTokenPreview = async (eventoId, usuario) => {
+    const evento = await assertLeitura(eventoId, usuario);
+    assertAdmin(usuario);
+    return { token: gerarTokenPreview(evento.id), expira_em_segundos: 300 };
 };
 
 const emitirPedidoPagoPresencial = async (eventoId, dados, usuario, canal) => {

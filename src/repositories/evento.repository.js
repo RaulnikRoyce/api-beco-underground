@@ -11,14 +11,21 @@ const SELECT_EVENTO = `SELECT id, nome, DATE_FORMAT(data, '%Y-%m-%d') AS data, l
     taxa_mp_percentual, repassa_taxa_comprador
 FROM eventos`;
 
-exports.buscarTodos = ({ q, ordenar = 'data_desc', limite, offset } = {}) => new Promise((resolve, reject) => {
+exports.buscarTodos = ({ q, ordenar = 'data_desc', limite, offset, criadoPor } = {}) => new Promise((resolve, reject) => {
     const params = [];
     let sql = SELECT_EVENTO;
+    const filtros = [];
 
     if (q) {
-        sql += ' WHERE (nome LIKE ? OR local LIKE ?)';
+        filtros.push('(nome LIKE ? OR local LIKE ?)');
         params.push(`%${q}%`, `%${q}%`);
     }
+    if (criadoPor != null) {
+        filtros.push('criado_por = ?');
+        params.push(Number(criadoPor));
+    }
+
+    if (filtros.length) sql += ` WHERE ${filtros.join(' AND ')}`;
 
     sql += ` ORDER BY ${ORDENAR[ordenar] || ORDENAR.data_desc}`;
 
@@ -33,14 +40,21 @@ exports.buscarTodos = ({ q, ordenar = 'data_desc', limite, offset } = {}) => new
     });
 });
 
-exports.contar = ({ q } = {}) => new Promise((resolve, reject) => {
+exports.contar = ({ q, criadoPor } = {}) => new Promise((resolve, reject) => {
     const params = [];
     let sql = 'SELECT COUNT(*) AS total FROM eventos';
+    const filtros = [];
 
     if (q) {
-        sql += ' WHERE (nome LIKE ? OR local LIKE ?)';
+        filtros.push('(nome LIKE ? OR local LIKE ?)');
         params.push(`%${q}%`, `%${q}%`);
     }
+    if (criadoPor != null) {
+        filtros.push('criado_por = ?');
+        params.push(Number(criadoPor));
+    }
+
+    if (filtros.length) sql += ` WHERE ${filtros.join(' AND ')}`;
 
     db.query(sql, params, (err, resultados) => {
         if (err) return reject(err);

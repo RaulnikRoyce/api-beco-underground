@@ -69,7 +69,7 @@ exports.criarPreferencia = async ({
 exports.obterPagamento = (paymentId) => mpFetch(`/v1/payments/${paymentId}`);
 
 exports.extrairPaymentId = (body) => {
-    if (body?.data?.id) return String(body.data.id);
-    if (body?.id) return String(body.id);
-    return null;
+    const id = body?.data?.id ?? body?.id;
+    const normalizado = String(id || '').trim();
+    return /^\d{1,32}$/.test(normalizado) ? normalizado : null;
 };

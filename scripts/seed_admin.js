@@ -7,13 +7,17 @@ require('dotenv').config({
     override: !envDaSessao
 });
 const bcrypt = require('bcryptjs');
-const db = require('../src/database/db');
 
-const email = process.env.SEED_ADMIN_EMAIL || 'admin@beco.com';
-const senha = process.env.SEED_ADMIN_PASSWORD || 'admin123';
+const email = process.env.SEED_ADMIN_EMAIL;
+const senha = process.env.SEED_ADMIN_PASSWORD;
 const perfil = 'admin';
 
 async function seed() {
+    if (!email || !senha || senha.length < 12) {
+        console.error('Defina SEED_ADMIN_EMAIL e SEED_ADMIN_PASSWORD com uma senha de pelo menos 12 caracteres.');
+        process.exit(1);
+    }
+    const db = require('../src/database/db');
     console.log(`Seed em ${process.env.DB_HOST} / ${process.env.DB_NAME}`);
     const hash = await bcrypt.hash(senha, 10);
 

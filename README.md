@@ -40,7 +40,7 @@ API em `http://localhost:3000`. Saúde em `GET /health` (processo + `SELECT 1` n
 
 Para checkout real na loja local, configure `MP_ACCESS_TOKEN` no `.env` (token Mercado Pago). Sem o token, a loja ainda lista eventos e simula o fluxo até o pagamento.
 
-Seed local usa `SEED_ADMIN_EMAIL` e `SEED_ADMIN_PASSWORD` no `.env` (veja `.env.example`). Depois do primeiro login, troque a própria senha em `PATCH /auth/senha`. Em produção use o cadastro público de produtor e evite a senha do seed. Quem esqueceu a senha pede ao admin (`PATCH /auth/usuarios/:id/senha`). O admin troca a própria no perfil.
+Seed local exige `SEED_ADMIN_EMAIL` e uma `SEED_ADMIN_PASSWORD` única com pelo menos 12 caracteres no `.env` (veja `.env.example`). Depois do primeiro login, troque a própria senha em `PATCH /auth/senha`. Quem esqueceu a senha pede ao admin (`PATCH /auth/usuarios/:id/senha`). O admin troca a própria no perfil.
 
 ## Testes
 
@@ -58,14 +58,15 @@ npm run lint
 | PATCH | `/auth/senha` | logado (troca a própria senha; exige a atual) |
 | GET/PATCH/DELETE | `/auth/usuarios` | admin (bloquear e excluir equipe) |
 | PATCH | `/auth/usuarios/:id/senha` | admin (redefinir senha de outro usuário) |
-| GET/POST/PATCH/DELETE | `/eventos` | logado; editar e excluir, dono ou admin |
-| GET `/eventos?include=lineup` | eventos + lineup em uma ida | logado |
+| GET/POST/PATCH/DELETE | `/eventos` | admin vê todos; produtor vê e altera somente os próprios |
+| GET `/eventos?include=lineup` | eventos + lineup em uma ida | dono ou admin |
 | GET/POST/PATCH/DELETE | `/eventos/:id/custos`, `/lotes`, `/ingressos/*` | logado; escrita admin |
 | GET/POST/DELETE | `/bandas` | leitura logada; escrita admin |
-| GET/POST/PATCH/DELETE | `/lineup` | leitura logada; escrita admin |
+| GET/POST/PATCH/DELETE | `/lineup` | leitura do dono ou admin; escrita admin |
 | GET | `/publico/:token` | público; página da banda (só o cachê dela) |
 | GET | `/publico/eventos` | público; próximos shows na loja |
 | GET | `/publico/eventos/:slugOuId` | público; evento e lotes abertos |
+| POST | `/eventos/:id/ingressos/preview-token` | admin; token de preview vinculado ao evento por 5 minutos |
 | POST | `/ingressos/pedidos` | público (rate limit; checkout MP) |
 | GET | `/ingressos/pedidos/:codigo` | público; status do pedido |
 | GET | `/ingressos/emitidos/:codigo` | público; QR do ingresso pago |

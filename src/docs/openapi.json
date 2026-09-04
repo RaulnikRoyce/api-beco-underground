@@ -140,12 +140,18 @@
       }
     },
     "/eventos/{id}": {
-      "get": { "summary": "Obter evento", "responses": { "200": { "description": "Evento" } } },
+      "get": { "summary": "Obter evento (dono ou admin)", "responses": { "200": { "description": "Evento" }, "403": { "description": "Sem permissão" } } },
       "patch": { "summary": "Editar evento (dono ou admin)", "responses": { "200": { "description": "Evento atualizado" } } },
       "delete": { "summary": "Excluir evento (dono ou admin)", "responses": { "200": { "description": "Evento excluído" } } }
     },
+    "/eventos/{id}/ingressos/preview-token": {
+      "post": {
+        "summary": "Gerar token de preview por 5 minutos (admin)",
+        "responses": { "200": { "description": "{ token, expira_em_segundos }" } }
+      }
+    },
     "/bandas": {
-      "get": { "summary": "Listar artistas", "responses": { "200": { "description": "Array de bandas" } } },
+      "get": { "summary": "Listar artistas (contato e cachê somente para admin)", "responses": { "200": { "description": "Array de bandas" } } },
       "post": { "summary": "Cadastrar artista (admin)", "responses": { "201": { "description": "Banda cadastrada" } } }
     },
     "/bandas/{id}": {

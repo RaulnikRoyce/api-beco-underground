@@ -9,7 +9,7 @@ exports.adicionarBanda = asyncHandler(async (req, res) => {
 });
 
 exports.listarLineup = asyncHandler(async (req, res) => {
-    ok(res, await lineupService.listarLineupDoEvento(req.params.evento_id));
+    ok(res, await lineupService.listarLineupDoEvento(req.params.evento_id, req.usuario));
 });
 
 exports.atualizarSlot = asyncHandler(async (req, res) => {

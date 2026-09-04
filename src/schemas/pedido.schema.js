@@ -2,11 +2,11 @@ const { z } = require('zod');
 
 exports.pedidoSchema = z.object({
     evento_id: z.coerce.number().int().positive().optional(),
-    slug: z.string().trim().min(2).optional(),
+    slug: z.string().trim().min(2).max(120).optional(),
     lote_id: z.coerce.number().int().positive(),
     quantidade: z.coerce.number().int().positive().max(4),
-    nome: z.string().trim().min(2),
-    email: z.string().trim().email(),
+    nome: z.string().trim().min(2).max(255),
+    email: z.string().trim().email().max(255),
     cupom: z.string().trim().max(40).optional(),
     lgpd: z.literal(true, { message: 'Aceite a política de privacidade' })
 }).refine(
@@ -15,13 +15,13 @@ exports.pedidoSchema = z.object({
 );
 
 exports.recuperarSchema = z.object({
-    email: z.string().trim().email(),
-    codigo_pedido: z.string().trim().min(6)
+    email: z.string().trim().email().max(255),
+    codigo_pedido: z.string().trim().regex(/^[a-f0-9]{16}$/i, 'Código de pedido inválido')
 });
 
 exports.listaEsperaSchema = z.object({
     evento_id: z.coerce.number().int().positive(),
-    email: z.string().trim().email()
+    email: z.string().trim().email().max(255)
 });
 
 exports.compradoresQuery = z.object({

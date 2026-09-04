@@ -11,7 +11,7 @@
     "import:schema": "node scripts/import-schema.js",
     "migrate": "node scripts/migrate.js",
     "job:expirar-reservas": "node src/jobs/expirar-reservas.js",
-    "test": "node --require ./tests/setup-env.cjs --test --test-concurrency=1 ./tests/auth.middleware.test.js ./tests/evento.service.test.js ./tests/ingresso.service.test.js ./tests/mysql-datetime.test.js ./tests/pedido.schema.test.js ./tests/usuario.regras.test.js ./tests/publico.regras.test.js ./tests/publico.test.js ./tests/jwt.test.js ./tests/health.test.js ./tests/env.test.js",
+    "test": "node --require ./tests/setup-env.cjs --test --test-concurrency=1 ./tests/auth.middleware.test.js ./tests/evento.service.test.js ./tests/ingresso.service.test.js ./tests/mysql-datetime.test.js ./tests/pedido.schema.test.js ./tests/usuario.regras.test.js ./tests/publico.regras.test.js ./tests/publico.test.js ./tests/jwt.test.js ./tests/health.test.js ./tests/env.test.js ./tests/seguranca.test.js",
     "lint": "eslint src tests server.js",
     "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\" server.js"
   },

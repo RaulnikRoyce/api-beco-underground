@@ -3,12 +3,12 @@ const { asyncHandler, AppError } = require('../utils/erros');
 const { ok, criado, mensagem } = require('../utils/resposta');
 
 exports.listarEventos = asyncHandler(async (req, res) => {
-    const eventos = await eventoService.listarEventos(req.query);
+    const eventos = await eventoService.listarEventos(req.query, req.usuario);
     ok(res, eventos);
 });
 
 exports.obterEventoPorId = asyncHandler(async (req, res) => {
-    const evento = await eventoService.obterEventoPorId(req.params.id);
+    const evento = await eventoService.obterEventoPorId(req.params.id, req.usuario);
     if (!evento) throw new AppError(404, 'Evento não encontrado');
     ok(res, evento);
 });
