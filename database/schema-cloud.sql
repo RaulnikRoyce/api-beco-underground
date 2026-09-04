@@ -3,7 +3,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
     email VARCHAR(255) NOT NULL UNIQUE,
     senha VARCHAR(255) NOT NULL,
     perfil ENUM('admin', 'produtor') NOT NULL DEFAULT 'produtor',
-    ativo TINYINT(1) NOT NULL DEFAULT 1
+    ativo TINYINT(1) NOT NULL DEFAULT 1,
+    bootstrap_account TINYINT(1) NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS eventos (
