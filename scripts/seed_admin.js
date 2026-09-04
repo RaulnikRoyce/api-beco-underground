@@ -9,8 +9,21 @@ require('dotenv').config({
 const bcrypt = require('bcryptjs');
 const db = require('../src/database/db');
 
-const email = process.env.SEED_ADMIN_EMAIL || 'admin@beco.com';
-const senha = process.env.SEED_ADMIN_PASSWORD || 'admin123';
+// Validate that required credentials are explicitly provided
+if (!process.env.SEED_ADMIN_EMAIL || process.env.SEED_ADMIN_EMAIL.trim() === '') {
+    console.error('ERRO: SEED_ADMIN_EMAIL deve ser definido explicitamente.');
+    console.error('Defina a variável de ambiente antes de executar o seeder.');
+    process.exit(1);
+}
+
+if (!process.env.SEED_ADMIN_PASSWORD || process.env.SEED_ADMIN_PASSWORD.trim() === '') {
+    console.error('ERRO: SEED_ADMIN_PASSWORD deve ser definido explicitamente.');
+    console.error('Defina a variável de ambiente antes de executar o seeder.');
+    process.exit(1);
+}
+
+const email = process.env.SEED_ADMIN_EMAIL;
+const senha = process.env.SEED_ADMIN_PASSWORD;
 const perfil = 'admin';
 
 async function seed() {
