@@ -9,7 +9,9 @@ exports.gerarSlugBase = (nome) => {
         .replace(/^-+|-+$/g, '')
         .slice(0, 80);
 
-    return base || 'evento';
+    if (!base) return 'evento';
+    if (/^\d+$/.test(base)) return `evento-${base}`;
+    return base;
 };
 
 exports.garantirSlugUnico = (base, eventoIdExcluir = null) => new Promise((resolve, reject) => {

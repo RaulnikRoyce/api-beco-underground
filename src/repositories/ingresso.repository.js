@@ -327,6 +327,19 @@ exports.criarItemPedido = ({ pedido_id, lote_id, quantidade, preco_unitario }) =
     );
 });
 
+exports.criarPedidoPagoCanalTx = (exec, { evento_id, codigo_publico, nome, email, total, canal }) =>
+    exec(
+        `INSERT INTO pedidos_ingresso (evento_id, codigo_publico, nome, email, status, canal, total)
+         VALUES (?, ?, ?, ?, 'pago', ?, ?)`,
+        [evento_id, codigo_publico, nome, email, canal || 'cortesia', total]
+    ).then((result) => result.insertId);
+
+exports.criarItemPedidoTx = (exec, { pedido_id, lote_id, quantidade, preco_unitario }) =>
+    exec(
+        'INSERT INTO itens_pedido (pedido_id, lote_id, quantidade, preco_unitario) VALUES (?, ?, ?, ?)',
+        [pedido_id, lote_id, quantidade, preco_unitario]
+    ).then((result) => result.insertId);
+
 exports.criarIngressoEmitido = ({ codigo, pedido_id, lote_id }) => new Promise((resolve, reject) => {
     db.query(
         'INSERT INTO ingressos_emitidos (codigo, pedido_id, lote_id) VALUES (?, ?, ?)',
@@ -337,6 +350,12 @@ exports.criarIngressoEmitido = ({ codigo, pedido_id, lote_id }) => new Promise((
         }
     );
 });
+
+exports.criarIngressoEmitidoTx = (exec, { codigo, pedido_id, lote_id }) =>
+    exec(
+        'INSERT INTO ingressos_emitidos (codigo, pedido_id, lote_id) VALUES (?, ?, ?)',
+        [codigo, pedido_id, lote_id]
+    ).then((result) => ({ id: result.insertId, codigo, pedido_id, lote_id, status: 'valido' }));
 
 exports.buscarIngressosPorPedido = (pedidoId) => new Promise((resolve, reject) => {
     db.query(

@@ -2,6 +2,47 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { podeExcluirEvento, agruparLineups } = require('../src/utils/evento.regras');
 const { parsePaginacao, envelope } = require('../src/utils/paginacao');
+const eventoService = require('../src/services/evento.service');
+const eventoRepository = require('../src/repositories/evento.repository');
+const pedidoRepository = require('../src/repositories/pedido.repository');
+
+function mockar(objeto, metodo, implementacao) {
+    const original = objeto[metodo];
+    objeto[metodo] = implementacao;
+    return () => { objeto[metodo] = original; };
+}
+
+test('excluirEvento recusa apagar evento com pedido pago', async () => {
+    const restaurar = [
+        mockar(eventoRepository, 'buscarPorId', async () => ({ id: 1, criado_por: 1 })),
+        mockar(pedidoRepository, 'contarPedidosPagosPorEvento', async () => 3)
+    ];
+
+    try {
+        await assert.rejects(
+            eventoService.excluirEvento(1, { id: 1, perfil: 'admin' }),
+            /3 pedido\(s\) pago\(s\)/
+        );
+    } finally {
+        restaurar.forEach((fn) => fn());
+    }
+});
+
+test('excluirEvento apaga normalmente quando não há pedido pago', async () => {
+    let excluiu = false;
+    const restaurar = [
+        mockar(eventoRepository, 'buscarPorId', async () => ({ id: 1, criado_por: 1 })),
+        mockar(pedidoRepository, 'contarPedidosPagosPorEvento', async () => 0),
+        mockar(eventoRepository, 'excluir', async () => { excluiu = true; return true; })
+    ];
+
+    try {
+        await eventoService.excluirEvento(1, { id: 1, perfil: 'admin' });
+        assert.equal(excluiu, true);
+    } finally {
+        restaurar.forEach((fn) => fn());
+    }
+});
 
 test('admin pode excluir qualquer evento', () => {
     const ok = podeExcluirEvento({ id: 1, criado_por: 99 }, { id: 2, perfil: 'admin' });

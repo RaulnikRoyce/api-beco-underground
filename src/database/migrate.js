@@ -57,6 +57,18 @@ const colunasPosTabelas = [
     {
         nome: 'pedidos_ingresso.desconto_aplicado',
         sql: 'ALTER TABLE pedidos_ingresso ADD COLUMN desconto_aplicado DECIMAL(10, 2) NULL DEFAULT 0'
+    },
+    {
+        nome: 'pedidos_ingresso.pagamento_recusado_em',
+        sql: 'ALTER TABLE pedidos_ingresso ADD COLUMN pagamento_recusado_em DATETIME NULL'
+    },
+    {
+        nome: 'pedidos_ingresso.mp_init_point',
+        sql: 'ALTER TABLE pedidos_ingresso ADD COLUMN mp_init_point VARCHAR(500) NULL'
+    },
+    {
+        nome: 'pedidos_ingresso.mp_preference_id',
+        sql: 'ALTER TABLE pedidos_ingresso ADD COLUMN mp_preference_id VARCHAR(64) NULL'
     }
 ];
 

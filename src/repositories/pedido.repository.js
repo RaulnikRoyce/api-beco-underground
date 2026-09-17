@@ -3,8 +3,8 @@ const db = require('../database/db');
 exports.buscarPorCodigo = (codigo) => new Promise((resolve, reject) => {
     db.query(
         `SELECT id, evento_id, codigo_publico, nome, email, status, canal,
-                mp_payment_id, total, taxa_estimada, expires_at, criado_em,
-                desconto_aplicado, cupom_id
+                mp_payment_id, mp_preference_id, total, taxa_estimada, expires_at, criado_em,
+                desconto_aplicado, cupom_id, pagamento_recusado_em, mp_init_point
          FROM pedidos_ingresso WHERE codigo_publico = ?`,
         [codigo],
         (err, rows) => {
@@ -50,10 +50,10 @@ exports.criarPedidoPendente = (dados) => new Promise((resolve, reject) => {
     );
 });
 
-exports.atualizarMpPaymentId = (pedidoId, mpPaymentId) => new Promise((resolve, reject) => {
+exports.salvarPreferenciaCriada = (pedidoId, { preferenceId, initPoint }) => new Promise((resolve, reject) => {
     db.query(
-        'UPDATE pedidos_ingresso SET mp_payment_id = ? WHERE id = ?',
-        [mpPaymentId, pedidoId],
+        'UPDATE pedidos_ingresso SET mp_preference_id = ?, mp_init_point = ? WHERE id = ?',
+        [preferenceId, initPoint, pedidoId],
         (err) => {
             if (err) return reject(err);
             resolve(true);
@@ -61,23 +61,11 @@ exports.atualizarMpPaymentId = (pedidoId, mpPaymentId) => new Promise((resolve, 
     );
 });
 
-exports.marcarPago = (pedidoId, mpPaymentId) => new Promise((resolve, reject) => {
+exports.marcarPagamentoRecusado = (pedidoId) => new Promise((resolve, reject) => {
     db.query(
-        `UPDATE pedidos_ingresso SET status = 'pago', mp_payment_id = COALESCE(?, mp_payment_id)
+        `UPDATE pedidos_ingresso SET pagamento_recusado_em = ?
          WHERE id = ? AND status = 'pendente'`,
-        [mpPaymentId, pedidoId],
-        (err, result) => {
-            if (err) return reject(err);
-            resolve(result.affectedRows > 0);
-        }
-    );
-});
-
-exports.marcarExpirado = (pedidoId) => new Promise((resolve, reject) => {
-    db.query(
-        `UPDATE pedidos_ingresso SET status = 'expirado'
-         WHERE id = ? AND status = 'pendente'`,
-        [pedidoId],
+        [new Date(), pedidoId],
         (err, result) => {
             if (err) return reject(err);
             resolve(result.affectedRows > 0);
@@ -114,6 +102,17 @@ exports.contarIngressosPorEmail = (eventoId, email) => new Promise((resolve, rej
     );
 });
 
+exports.contarIngressosPorEmailTx = (exec, eventoId, email) =>
+    exec(
+        `SELECT COALESCE(SUM(ip.quantidade), 0) AS total
+         FROM pedidos_ingresso p
+         JOIN itens_pedido ip ON ip.pedido_id = p.id
+         WHERE p.evento_id = ? AND LOWER(p.email) = LOWER(?)
+           AND p.status IN ('pendente', 'pago')
+         FOR UPDATE`,
+        [eventoId, email]
+    ).then((rows) => Number(rows[0]?.total) || 0);
+
 exports.listarCompradores = (eventoId, filtros = {}) => new Promise((resolve, reject) => {
     const params = [eventoId];
     let sql = `
@@ -148,8 +147,9 @@ exports.listarCompradores = (eventoId, filtros = {}) => new Promise((resolve, re
 
 exports.listarPedidosExpirados = () => new Promise((resolve, reject) => {
     db.query(
-        `SELECT id, evento_id FROM pedidos_ingresso
-         WHERE status = 'pendente' AND expires_at IS NOT NULL AND expires_at < NOW()`,
+        `SELECT id, evento_id, cupom_id FROM pedidos_ingresso
+         WHERE status = 'pendente' AND expires_at IS NOT NULL AND expires_at < ?`,
+        [new Date()],
         (err, rows) => {
             if (err) return reject(err);
             resolve(rows);
@@ -178,9 +178,9 @@ exports.buscarIngressoPorCodigo = (codigo) => new Promise((resolve, reject) => {
 
 exports.marcarIngressoUsado = (codigo, adminId) => new Promise((resolve, reject) => {
     db.query(
-        `UPDATE ingressos_emitidos SET status = 'usado', usado_em = NOW(), usado_por = ?
+        `UPDATE ingressos_emitidos SET status = 'usado', usado_em = ?, usado_por = ?
          WHERE codigo = ? AND status = 'valido'`,
-        [adminId, codigo],
+        [new Date(), adminId, codigo],
         (err, result) => {
             if (err) return reject(err);
             resolve(result.affectedRows > 0);
@@ -221,6 +221,17 @@ exports.liberarReservaLote = (exec, loteId, quantidade) =>
         [quantidade, loteId]
     );
 
+exports.venderDiretoLote = (exec, loteId, quantidade) =>
+    exec(
+        `UPDATE lotes_ingresso
+         SET quantidade_vendida = quantidade_vendida + ?
+         WHERE id = ? AND (quantidade_total - quantidade_vendida - quantidade_reservada) >= ?`,
+        [quantidade, loteId, quantidade]
+    ).then((result) => {
+        if (!result.affectedRows) throw new Error('ESTOQUE_INSUFICIENTE');
+        return result;
+    });
+
 exports.confirmarVendaLote = (exec, loteId, quantidade) =>
     exec(
         `UPDATE lotes_ingresso
@@ -230,13 +241,22 @@ exports.confirmarVendaLote = (exec, loteId, quantidade) =>
         [quantidade, quantidade, loteId]
     );
 
-exports.devolverVendaLote = (loteId, quantidade) => new Promise((resolve, reject) => {
-    db.query(
+exports.devolverVendaLote = (exec, loteId, quantidade) =>
+    exec(
         `UPDATE lotes_ingresso
          SET quantidade_vendida = GREATEST(0, quantidade_vendida - ?)
          WHERE id = ?`,
-        [quantidade, loteId],
-        (err) => (err ? reject(err) : resolve(true))
+        [quantidade, loteId]
+    );
+
+exports.contarPedidosPagosPorEvento = (eventoId) => new Promise((resolve, reject) => {
+    db.query(
+        `SELECT COUNT(*) AS total FROM pedidos_ingresso WHERE evento_id = ? AND status = 'pago'`,
+        [eventoId],
+        (err, rows) => {
+            if (err) return reject(err);
+            resolve(Number(rows[0].total) || 0);
+        }
     );
 });
 
@@ -257,7 +277,7 @@ exports.contarPedidosAtivosPorLote = (loteId) => new Promise((resolve, reject) =
 exports.buscarPorCodigoEEvento = (codigo, eventoId) => new Promise((resolve, reject) => {
     db.query(
         `SELECT id, evento_id, codigo_publico, nome, email, status, canal,
-                mp_payment_id, total, taxa_estimada, expires_at, criado_em
+                mp_payment_id, total, taxa_estimada, expires_at, criado_em, cupom_id
          FROM pedidos_ingresso WHERE codigo_publico = ? AND evento_id = ?`,
         [codigo, eventoId],
         (err, rows) => {
@@ -267,45 +287,32 @@ exports.buscarPorCodigoEEvento = (codigo, eventoId) => new Promise((resolve, rej
     );
 });
 
-exports.marcarCancelado = (pedidoId) => new Promise((resolve, reject) => {
-    db.query(
+exports.marcarCancelado = (exec, pedidoId) =>
+    exec(
         `UPDATE pedidos_ingresso SET status = 'cancelado'
          WHERE id = ? AND status IN ('pendente', 'pago')`,
-        [pedidoId],
-        (err, result) => {
-            if (err) return reject(err);
-            resolve(result.affectedRows > 0);
-        }
-    );
-});
+        [pedidoId]
+    ).then((result) => result.affectedRows > 0);
 
-exports.cancelarIngressosDoPedido = (pedidoId) => new Promise((resolve, reject) => {
-    db.query(
+exports.cancelarIngressosDoPedido = (exec, pedidoId) =>
+    exec(
         `UPDATE ingressos_emitidos SET status = 'cancelado'
          WHERE pedido_id = ? AND status IN ('valido', 'usado')`,
-        [pedidoId],
-        (err, result) => {
-            if (err) return reject(err);
-            resolve(result.affectedRows);
-        }
-    );
-});
+        [pedidoId]
+    ).then((result) => result.affectedRows);
 
-exports.limparVinculosLoteInativos = (loteId) => new Promise((resolve, reject) => {
-    db.query(
+exports.limparVinculosLoteInativos = (loteId) => db.comTransacao(async (exec) => {
+    await exec(
         `DELETE ie FROM ingressos_emitidos ie
          JOIN pedidos_ingresso p ON p.id = ie.pedido_id
          WHERE ie.lote_id = ? AND p.status IN ('cancelado', 'expirado')`,
-        [loteId],
-        (err) => {
-            if (err) return reject(err);
-            db.query(
-                `DELETE ip FROM itens_pedido ip
-                 JOIN pedidos_ingresso p ON p.id = ip.pedido_id
-                 WHERE ip.lote_id = ? AND p.status IN ('cancelado', 'expirado')`,
-                [loteId],
-                (err2) => (err2 ? reject(err2) : resolve(true))
-            );
-        }
+        [loteId]
     );
+    await exec(
+        `DELETE ip FROM itens_pedido ip
+         JOIN pedidos_ingresso p ON p.id = ip.pedido_id
+         WHERE ip.lote_id = ? AND p.status IN ('cancelado', 'expirado')`,
+        [loteId]
+    );
+    return true;
 });

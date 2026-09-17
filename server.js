@@ -5,6 +5,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 const { carregarEnv } = require('./src/config/env');
 const { migrar } = require('./src/database/migrate');
+const agendadorExpiracao = require('./src/jobs/agendador-expiracao');
 
 let env;
 try {
@@ -48,6 +49,8 @@ async function iniciar() {
             em: new Date().toISOString()
         }));
     });
+
+    agendadorExpiracao.iniciar();
 }
 
 iniciar();

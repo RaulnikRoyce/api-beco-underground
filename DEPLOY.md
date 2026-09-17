@@ -11,11 +11,14 @@
 | `NODE_ENV` | `production` |
 | `JWT_SECRET` | Obrigatório. O boot exige esta variável e registra `JWT_SECRET` no log quando ela falta |
 | `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT` | MySQL na Aiven (host público e porta pública) |
-| `DB_SSL` | `true` na Aiven (também liga sozinho se o host for `*.aivencloud.com`) |
-| `CORS_ORIGIN` | `https://demo.raulnikroyce.dev,https://ingressosbeco.raulnikroyce.dev` |
+| `DB_SSL` | Obrigatório em produção: `true` (Aiven) ou `false`, explícito — o boot recusa subir sem essa variável definida, mesmo que o host seja reconhecido automaticamente |
+| `CORS_ORIGIN` | `https://demo.raulnikroyce.dev,https://ingressosbeco.raulnikroyce.dev` — some também o domínio de qualquer site que embede o `widget.js` da loja (ex.: o site pessoal), senão o navegador bloqueia o `fetch` do widget nesse domínio |
 | `MP_ACCESS_TOKEN` | Token Mercado Pago (Checkout Pro) |
 | `LOJA_INGRESSOS_URL` | `https://ingressosbeco.raulnikroyce.dev` (back_urls MP) |
 | `API_PUBLIC_URL` | `https://api-beco-underground.onrender.com` (notification_url webhook) |
+| `MP_WEBHOOK_SECRET` | Opcional. "Secret Key" gerada ao cadastrar a notificação webhook no painel do Mercado Pago — se definida, a API passa a exigir a assinatura `x-signature` em `POST /ingressos/webhook` |
+
+Em produção (`NODE_ENV=production`) o boot **recusa subir** se `CORS_ORIGIN`, `MP_ACCESS_TOKEN`, `API_PUBLIC_URL` ou `LOJA_INGRESSOS_URL` estiverem ausentes — sem essa checagem a API subia normalmente, mas o checkout ou o webhook do Mercado Pago ficavam quebrados sem nenhum erro visível na hora.
 
 Gere o segredo no seu PC e evite colar no GitHub.
 
@@ -34,6 +37,16 @@ A API no Render alcança o host público da Aiven (`*.aivencloud.com`) e a porta
 Importe `database/schema-cloud.sql` (ou rode `npm run import:schema` com as variáveis da Aiven na sessão). Em produção a API roda `npm run migrate` automaticamente no boot. Para forçar antes de um deploy, rode `npm run migrate` no PC com as variáveis da Aiven na sessão.
 
 Evite commitar senha. Evite colar `DB_PASSWORD` no chat.
+
+## Expiração de reservas
+
+A própria API roda esse job internamente a cada 5 minutos (`src/jobs/agendador-expiracao.js`, iniciado em `server.js` junto com `app.listen`) — não precisa de cron externo para funcionar. Ajuste o intervalo com `INGRESSOS_EXPIRACAO_INTERVALO_MS` (em milissegundos) se quiser.
+
+O script `npm run job:expirar-reservas` continua existindo caso prefira também um cron externo como redundância (ex.: se o processo da API ficar muito tempo sem reiniciar), mas não é mais obrigatório.
+
+## Cadastro público (produtor)
+
+`POST /auth/registrar` é público e sem CAPTCHA — hoje a única trava contra criação em massa de contas é um rate limit de 5 cadastros/hora por IP. Se isso não for suficiente, considere adicionar hCaptcha ou reCAPTCHA (exige criar uma conta no serviço escolhido e configurar a chave secreta na API para validar o token antes de `authService.registrar`).
 
 ## Checagem
 

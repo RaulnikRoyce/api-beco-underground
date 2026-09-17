@@ -1,9 +1,11 @@
 const eventoRepository = require('../repositories/evento.repository');
 const lineupRepository = require('../repositories/lineup.repository');
+const pedidoRepository = require('../repositories/pedido.repository');
 const { AppError } = require('../utils/erros');
 const { envelope } = require('../utils/paginacao');
 const { podeExcluirEvento, podeEditarEvento, agruparLineups } = require('../utils/evento.regras');
 const { gerarSlugBase, garantirSlugUnico } = require('../utils/slug');
+const { limitarCacheLineup } = require('./lineup.service');
 
 exports.podeExcluirEvento = podeExcluirEvento;
 exports.podeEditarEvento = podeEditarEvento;
@@ -21,7 +23,7 @@ exports.listarEventos = async (query = {}, usuario) => {
     let lista = eventos;
     if (include === 'lineup' && eventos.length) {
         const lineups = await lineupRepository.buscarPorEventos(eventos.map((evento) => evento.id));
-        lista = agruparLineups(eventos, lineups);
+        lista = agruparLineups(eventos, limitarCacheLineup(lineups, usuario));
     }
 
     if (!paginar) return lista;
@@ -48,6 +50,11 @@ exports.excluirEvento = async (id, usuario) => {
 
     if (!exports.podeExcluirEvento(evento, usuario)) {
         throw new AppError(403, 'Só o criador ou um admin pode excluir este evento');
+    }
+
+    const pedidosPagos = await pedidoRepository.contarPedidosPagosPorEvento(id);
+    if (pedidosPagos > 0) {
+        throw new AppError(409, `Este evento tem ${pedidosPagos} pedido(s) pago(s) — cancele-os antes de excluir, ou mantenha o evento para preservar o histórico de venda`);
     }
 
     await eventoRepository.excluir(id);

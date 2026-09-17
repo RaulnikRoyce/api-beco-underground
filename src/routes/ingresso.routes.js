@@ -134,6 +134,7 @@ router.post(
 router.get(
     '/ingressos/compradores',
     verificarToken,
+    verificarPerfil(['admin']),
     validarId('evento_id'),
     validarQuery(compradoresQuery),
     pedidoController.listarCompradores
@@ -141,6 +142,7 @@ router.get(
 router.get(
     '/ingressos/compradores.csv',
     verificarToken,
+    verificarPerfil(['admin']),
     validarId('evento_id'),
     validarQuery(compradoresQuery),
     pedidoController.compradoresCsv
@@ -148,6 +150,7 @@ router.get(
 router.get(
     '/ingressos/lista-porta.pdf',
     verificarToken,
+    verificarPerfil(['admin']),
     validarId('evento_id'),
     pedidoController.listaPorta
 );

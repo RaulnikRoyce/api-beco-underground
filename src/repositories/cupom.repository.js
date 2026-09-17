@@ -12,16 +12,21 @@ exports.buscarPorCodigo = (eventoId, codigo) => new Promise((resolve, reject) =>
     );
 });
 
-exports.incrementarUso = (cupomId) => new Promise((resolve, reject) => {
-    db.query(
-        'UPDATE cupons SET uso_atual = uso_atual + 1 WHERE id = ?',
-        [cupomId],
-        (err) => {
-            if (err) return reject(err);
-            resolve(true);
-        }
+exports.reservarUso = (exec, cupomId) =>
+    exec(
+        `UPDATE cupons SET uso_atual = uso_atual + 1
+         WHERE id = ? AND (uso_max IS NULL OR uso_atual < uso_max)`,
+        [cupomId]
+    ).then((result) => {
+        if (!result.affectedRows) throw new Error('CUPOM_ESGOTADO');
+        return result;
+    });
+
+exports.liberarUso = (exec, cupomId) =>
+    exec(
+        'UPDATE cupons SET uso_atual = GREATEST(0, uso_atual - 1) WHERE id = ?',
+        [cupomId]
     );
-});
 
 exports.listarPorEvento = (eventoId) => new Promise((resolve, reject) => {
     db.query(

@@ -92,6 +92,9 @@ CREATE TABLE IF NOT EXISTS pedidos_ingresso (
     expires_at DATETIME NULL,
     cupom_id INT NULL,
     desconto_aplicado DECIMAL(10, 2) NULL DEFAULT 0,
+    pagamento_recusado_em DATETIME NULL,
+    mp_init_point VARCHAR(500) NULL,
+    mp_preference_id VARCHAR(64) NULL,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (evento_id) REFERENCES eventos(id) ON DELETE CASCADE
 );

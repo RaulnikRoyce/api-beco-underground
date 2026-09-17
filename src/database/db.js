@@ -20,7 +20,8 @@ const pool = mysql.createPool({
     connectTimeout: 20000,
     enableKeepAlive: true,
     keepAliveInitialDelay: 10000,
-    ssl: usarSsl ? { rejectUnauthorized: true } : undefined
+    ssl: usarSsl ? { rejectUnauthorized: true } : undefined,
+    timezone: 'Z'
 });
 
 pool.on('error', (err) => {

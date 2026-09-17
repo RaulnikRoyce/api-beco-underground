@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const authRepository = require('../repositories/auth.repository');
 const { AppError } = require('../utils/erros');
+const limitadorLogin = require('../utils/limitador-login');
 const {
     contaAtiva,
     sanitizarUsuario,
@@ -9,12 +10,22 @@ const {
     podeRedefinirSenha
 } = require('../utils/usuario.regras');
 
-exports.autenticar = async (email, senha) => {
-    const usuario = await authRepository.buscarPorEmail(email);
-    if (!usuario) return null;
+const HASH_FANTASMA = bcrypt.hashSync('nenhuma-conta-usa-esta-senha', 10);
 
-    const senhaValida = await bcrypt.compare(senha, usuario.senha);
-    if (!senhaValida) return null;
+exports.autenticar = async (email, senha) => {
+    if (limitadorLogin.bloqueado(email)) {
+        throw new AppError(429, 'Muitas tentativas para esta conta. Aguarde alguns minutos e tente de novo.');
+    }
+
+    const usuario = await authRepository.buscarPorEmail(email);
+    const senhaValida = await bcrypt.compare(senha, usuario ? usuario.senha : HASH_FANTASMA);
+
+    if (!usuario || !senhaValida) {
+        limitadorLogin.registrarFalha(email);
+        return null;
+    }
+
+    limitadorLogin.limparTentativas(email);
 
     if (!contaAtiva(usuario)) {
         throw new AppError(403, 'Conta desativada. Fale com o administrador.');
@@ -25,12 +36,15 @@ exports.autenticar = async (email, senha) => {
 
 exports.registrar = async (email, senha) => {
     const existente = await authRepository.buscarPorEmail(email);
-    if (existente) {
-        throw new AppError(409, 'E-mail já cadastrado');
-    }
+    if (existente) return null;
 
     const senhaCriptografada = await bcrypt.hash(senha, 10);
-    return sanitizarUsuario(await authRepository.salvar(email, senhaCriptografada, 'produtor'));
+    try {
+        return sanitizarUsuario(await authRepository.salvar(email, senhaCriptografada, 'produtor'));
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') return null;
+        throw err;
+    }
 };
 
 exports.listarUsuarios = async () => {

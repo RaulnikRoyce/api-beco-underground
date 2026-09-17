@@ -1,7 +1,49 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { calcularPrecificacao, gerarLotesSugeridos, obterLoteVigente } = require('../src/services/ingresso.service');
+const ingressoService = require('../src/services/ingresso.service');
+const { calcularPrecificacao, gerarLotesSugeridos, obterLoteVigente } = ingressoService;
 const { gerarSlugBase } = require('../src/utils/slug');
+const ingressoRepository = require('../src/repositories/ingresso.repository');
+
+function mockar(objeto, metodo, implementacao) {
+    const original = objeto[metodo];
+    objeto[metodo] = implementacao;
+    return () => { objeto[metodo] = original; };
+}
+
+test('evento público não vaza margem, taxa, público esperado nem o dono do evento', async () => {
+    const restaurar = [
+        mockar(ingressoRepository, 'buscarConfigEvento', async () => ({
+            id: 1,
+            nome: 'Show',
+            data: '2026-01-01',
+            local: 'Beco',
+            slug: 'show',
+            criado_por: 42,
+            venda_publicada: 1,
+            publico_esperado: 300,
+            capacidade_maxima: 400,
+            margem_percentual: 15,
+            taxa_mp_percentual: 4.99,
+            repassa_taxa_comprador: 1
+        })),
+        mockar(ingressoRepository, 'buscarLotes', async () => [])
+    ];
+
+    try {
+        const resultado = await ingressoService.obterEventoPublico('1', null);
+        assert.equal(resultado.nome, 'Show');
+        assert.equal(resultado.slug, 'show');
+        for (const campoInterno of [
+            'criado_por', 'publico_esperado', 'capacidade_maxima',
+            'margem_percentual', 'taxa_mp_percentual', 'repassa_taxa_comprador'
+        ]) {
+            assert.equal(campoInterno in resultado, false, `campo interno "${campoInterno}" não deveria estar na resposta pública`);
+        }
+    } finally {
+        restaurar.forEach((fn) => fn());
+    }
+});
 
 test('precificação soma cachê e produção com margem', () => {
     const resultado = calcularPrecificacao({
@@ -46,6 +88,12 @@ test('simulador calcula sobra com percentual vendido', () => {
 test('slug base remove acentos e espaços', () => {
     assert.equal(gerarSlugBase('Sábado Maldito #2'), 'sabado-maldito-2');
     assert.equal(gerarSlugBase(''), 'evento');
+});
+
+test('slug base nunca fica só de números (achado B15)', () => {
+    assert.equal(gerarSlugBase('2026'), 'evento-2026');
+    assert.equal(gerarSlugBase('  42  '), 'evento-42');
+    assert.equal(gerarSlugBase('Show 2026'), 'show-2026');
 });
 
 test('lotes sugeridos fracionam público 100 em 30/40/25/5', () => {

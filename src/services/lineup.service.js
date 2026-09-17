@@ -5,6 +5,14 @@ const { gerarTokenPublico } = require('../utils/token.publico');
 const eventoRepository = require('../repositories/evento.repository');
 const { podeEditarEvento } = require('../utils/evento.regras');
 
+exports.limitarCacheLineup = (lineup, usuario) => {
+    if (usuario?.perfil === 'admin') return lineup;
+    return (lineup || []).map((item) => {
+        const { cache, ...resto } = item;
+        return resto;
+    });
+};
+
 exports.adicionarNaLineup = (evento_id, banda_id, horario, cache_negociado) =>
     db.comTransacao(async (exec) => {
         const eventos = await exec('SELECT id FROM eventos WHERE id = ?', [evento_id]);
@@ -26,7 +34,8 @@ exports.listarLineupDoEvento = async (evento_id, usuario) => {
     const evento = await eventoRepository.buscarPorId(evento_id);
     if (!evento) throw new AppError(404, 'Evento não encontrado');
     if (!podeEditarEvento(evento, usuario)) throw new AppError(403, 'Sem permissão para ver esta lineup');
-    return lineupRepository.buscarPorEvento(evento_id);
+    const lineup = await lineupRepository.buscarPorEvento(evento_id);
+    return exports.limitarCacheLineup(lineup, usuario);
 };
 
 exports.atualizarSlot = async (id, dados) => {

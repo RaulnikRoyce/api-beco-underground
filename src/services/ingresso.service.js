@@ -262,6 +262,9 @@ exports.atualizarConfig = async (eventoId, dados, usuario) => {
         if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
             throw new AppError(400, 'Slug inválido. Use letras minúsculas, números e hífens.');
         }
+        if (/^\d+$/.test(slug)) {
+            throw new AppError(400, 'Slug não pode ser só números. Inclua ao menos uma letra.');
+        }
         const emUso = await ingressoRepository.slugEmUso(slug, eventoId);
         if (emUso) throw new AppError(409, 'Slug já está em uso');
         dados.slug = slug;
@@ -374,7 +377,12 @@ exports.obterEventoPublico = async (slugOuId, previewToken) => {
         }));
 
     return {
-        ...evento,
+        id: evento.id,
+        nome: evento.nome,
+        data: evento.data,
+        local: evento.local,
+        slug: evento.slug,
+        venda_publicada: evento.venda_publicada,
         lotes: lotesPublicos,
         lote_vigente: vigente
     };
@@ -409,39 +417,44 @@ const emitirPedidoPagoPresencial = async (eventoId, dados, usuario, canal) => {
     const email = (dados.email && String(dados.email).trim())
         || `porta+${codigoPublico}@beco.local`;
 
-    const pedidoId = await ingressoRepository.criarPedidoPagoCanal({
-        evento_id: eventoId,
-        codigo_publico: codigoPublico,
-        nome: dados.nome,
-        email,
-        total,
-        canal
-    });
-
-    await ingressoRepository.criarItemPedido({
-        pedido_id: pedidoId,
-        lote_id: lote.id,
-        quantidade,
-        preco_unitario: lote.preco
-    });
-
-    await new Promise((resolve, reject) => {
-        db.query(
-            'UPDATE lotes_ingresso SET quantidade_vendida = quantidade_vendida + ? WHERE id = ?',
-            [quantidade, lote.id],
-            (err) => (err ? reject(err) : resolve())
-        );
-    });
-
+    let pedidoId;
     const ingressos = [];
-    for (let i = 0; i < quantidade; i += 1) {
-        const codigo = crypto.randomBytes(12).toString('hex');
-        const emitido = await ingressoRepository.criarIngressoEmitido({
-            codigo,
-            pedido_id: pedidoId,
-            lote_id: lote.id
+    try {
+        pedidoId = await db.comTransacao(async (exec) => {
+            await pedidoRepository.venderDiretoLote(exec, lote.id, quantidade);
+
+            const id = await ingressoRepository.criarPedidoPagoCanalTx(exec, {
+                evento_id: eventoId,
+                codigo_publico: codigoPublico,
+                nome: dados.nome,
+                email,
+                total,
+                canal
+            });
+
+            await ingressoRepository.criarItemPedidoTx(exec, {
+                pedido_id: id,
+                lote_id: lote.id,
+                quantidade,
+                preco_unitario: lote.preco
+            });
+
+            for (let i = 0; i < quantidade; i += 1) {
+                const codigo = crypto.randomBytes(12).toString('hex');
+                ingressos.push(await ingressoRepository.criarIngressoEmitidoTx(exec, {
+                    codigo,
+                    pedido_id: id,
+                    lote_id: lote.id
+                }));
+            }
+
+            return id;
         });
-        ingressos.push(emitido);
+    } catch (err) {
+        if (err.message === 'ESTOQUE_INSUFICIENTE') {
+            throw new AppError(400, 'Estoque insuficiente neste lote');
+        }
+        throw err;
     }
 
     return { pedido_id: pedidoId, codigo_publico: codigoPublico, ingressos, canal };

@@ -15,7 +15,7 @@ exports.login = asyncHandler(async (req, res) => {
     const token = jwt.sign(
         { id: usuario.id, perfil: usuario.perfil },
         getJwtSecret(),
-        { expiresIn: '8h' }
+        { expiresIn: '8h', algorithm: 'HS256' }
     );
 
     res.json({
@@ -30,7 +30,7 @@ exports.login = asyncHandler(async (req, res) => {
 exports.registrar = asyncHandler(async (req, res) => {
     const { email, senha } = req.body;
     await authService.registrar(email, senha);
-    criado(res, 'Conta de produtor criada');
+    criado(res, 'Se este e-mail ainda não tinha conta, ela foi criada. Você já pode fazer login.');
 });
 
 exports.listarUsuarios = asyncHandler(async (_req, res) => {

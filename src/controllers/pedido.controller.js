@@ -1,10 +1,16 @@
 const pedidoService = require('../services/pedido.service');
 const cupomRepository = require('../repositories/cupom.repository');
+const mercadopagoService = require('../services/mercadopago.service');
 const { asyncHandler } = require('../utils/erros');
 const { ok, criado } = require('../utils/resposta');
+const logger = require('../utils/logger');
 
 exports.criarPedido = asyncHandler(async (req, res) => {
     criado(res, 'Pedido criado', await pedidoService.criarPedido(req.body));
+});
+
+exports.previsualizarPedido = asyncHandler(async (req, res) => {
+    ok(res, await pedidoService.previsualizarPedido(req.body));
 });
 
 exports.obterPedido = asyncHandler(async (req, res) => {
@@ -16,6 +22,21 @@ exports.obterIngresso = asyncHandler(async (req, res) => {
 });
 
 exports.webhook = asyncHandler(async (req, res) => {
+    const secret = process.env.MP_WEBHOOK_SECRET;
+    if (secret) {
+        const dataId = req.query['data.id'] || req.query.id || req.body?.data?.id || '';
+        const valido = mercadopagoService.validarAssinaturaWebhook({
+            xSignature: req.get('x-signature'),
+            xRequestId: req.get('x-request-id'),
+            dataId,
+            secret
+        });
+        if (!valido) {
+            logger.warn('Webhook do Mercado Pago recusado por assinatura inválida', { ip: req.ip });
+            return res.status(401).json({ erro: 'Assinatura inválida' });
+        }
+    }
+
     const resultado = await pedidoService.processarWebhook(req.body);
     ok(res, resultado);
 });

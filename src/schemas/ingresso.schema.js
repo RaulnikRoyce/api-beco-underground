@@ -3,6 +3,11 @@ const { z } = require('zod');
 const valorPositivo = z.coerce.number().positive('Valor deve ser maior que zero');
 const inteiroPositivo = z.coerce.number().int().positive('Quantidade deve ser maior que zero');
 
+const precoLote = valorPositivo.refine(
+    (v) => Number(v.toFixed(2)) === v,
+    { message: 'Preço deve ter no máximo 2 casas decimais' }
+);
+
 exports.custoSchema = z.object({
     descricao: z.string().trim().min(2, 'Descrição obrigatória'),
     categoria: z.string().trim().max(80).optional().nullable(),
@@ -16,7 +21,7 @@ exports.custoPatchSchema = exports.custoSchema.partial().refine(
 
 exports.loteSchema = z.object({
     nome: z.string().trim().min(2, 'Nome do lote obrigatório'),
-    preco: valorPositivo,
+    preco: precoLote,
     quantidade_total: inteiroPositivo,
     ordem: z.coerce.number().int().min(0).optional(),
     inicio_venda: z.string().optional().nullable(),

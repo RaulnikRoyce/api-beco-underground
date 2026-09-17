@@ -47,6 +47,32 @@ const carregarEnv = () => {
         throw new Error(`Variável obrigatória ausente: ${faltando.join(', ')}. ${dica}`);
     }
 
+    if ((process.env.NODE_ENV || 'development') === 'production') {
+        const faltandoProducao = [];
+        if (!primeiroDefinido(['MP_ACCESS_TOKEN'])) faltandoProducao.push('MP_ACCESS_TOKEN');
+        if (!primeiroDefinido(['CORS_ORIGIN'])) faltandoProducao.push('CORS_ORIGIN');
+        if (!primeiroDefinido(['API_PUBLIC_URL'])) faltandoProducao.push('API_PUBLIC_URL');
+        if (!primeiroDefinido(['LOJA_INGRESSOS_URL'])) faltandoProducao.push('LOJA_INGRESSOS_URL');
+        if (!dbPassword) faltandoProducao.push('DB_PASSWORD');
+
+        if (faltandoProducao.length) {
+            throw new Error(
+                `Variável obrigatória ausente em produção: ${faltandoProducao.join(', ')}. `
+                + 'Sem elas a API sobe normalmente, mas o checkout ou o webhook do Mercado Pago '
+                + 'ficam quebrados sem nenhum erro visível na hora. Confira o DEPLOY.md.'
+            );
+        }
+
+        const dbSsl = String(process.env.DB_SSL || '').trim().toLowerCase();
+        if (dbSsl !== 'true' && dbSsl !== 'false') {
+            throw new Error(
+                'Variável obrigatória ausente em produção: DB_SSL. '
+                + 'Defina "true" ou "false" explicitamente — não dependa da detecção automática '
+                + 'por hostname, que quebra silenciosamente numa troca de provedor de banco.'
+            );
+        }
+    }
+
     process.env.DB_HOST = hostFinal;
     process.env.DB_USER = dbUser;
     process.env.DB_NAME = dbName;

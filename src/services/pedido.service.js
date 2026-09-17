@@ -53,29 +53,70 @@ const aplicarCupom = async (eventoId, codigoCupom, subtotal) => {
     };
 };
 
-const emitirIngressosDoPedido = async (pedidoId, loteId, quantidade) => {
+const calcularPrecoPedido = async (evento, lote, qtd, codigoCupom) => {
+    const subtotal = arredondar(Number(lote.preco) * qtd);
+    const cupomAplicado = await aplicarCupom(evento.id, codigoCupom, subtotal);
+    const repassa = Number(evento.repassa_taxa_comprador) === 1;
+    const taxa = calcularTaxa(cupomAplicado.total, evento);
+    const total = repassa ? arredondar(cupomAplicado.total + taxa) : cupomAplicado.total;
+
+    return {
+        subtotal,
+        desconto: cupomAplicado.desconto,
+        cupom_id: cupomAplicado.cupom_id,
+        repassa,
+        taxa,
+        total
+    };
+};
+
+const emitirIngressosDoPedidoTx = async (exec, pedidoId, loteId, quantidade) => {
     const ingressos = [];
     for (let i = 0; i < quantidade; i += 1) {
         const codigo = crypto.randomBytes(12).toString('hex');
-        const emitido = await ingressoRepository.criarIngressoEmitido({
+        ingressos.push(await ingressoRepository.criarIngressoEmitidoTx(exec, {
             codigo,
             pedido_id: pedidoId,
             lote_id: loteId
-        });
-        ingressos.push(emitido);
+        }));
     }
     return ingressos;
 };
 
 exports.confirmarPagamentoPedido = async (pedido, mpPaymentId) => {
-    if (pedido.status === 'pago') return { jaPago: true };
+    if (pedido.status === 'pago') {
+        const existentes = await ingressoRepository.buscarIngressosPorPedido(pedido.id);
+        if (existentes.length) return { jaPago: true };
+
+        const itensParaReparo = await pedidoRepository.buscarItensPedido(pedido.id);
+        const ingressosReparados = [];
+        for (const item of itensParaReparo) {
+            for (let i = 0; i < item.quantidade; i += 1) {
+                const codigo = crypto.randomBytes(12).toString('hex');
+                ingressosReparados.push(await ingressoRepository.criarIngressoEmitido({
+                    codigo,
+                    pedido_id: pedido.id,
+                    lote_id: item.lote_id
+                }));
+            }
+        }
+        if (ingressosReparados.length) {
+            logger.warn('Ingressos emitidos em reparo — pedido estava pago sem nenhum ingresso', {
+                pedido_id: pedido.id,
+                codigo_publico: pedido.codigo_publico,
+                quantidade: ingressosReparados.length
+            });
+        }
+        return { jaPago: true, ingressos: ingressosReparados };
+    }
 
     const itens = await pedidoRepository.buscarItensPedido(pedido.id);
     if (!itens.length) throw new AppError(500, 'Pedido sem itens');
 
+    let ingressosEmitidos = [];
     const pagamentoConfirmadoAgora = await db.comTransacao(async (exec) => {
         const marcado = await exec(
-            `UPDATE pedidos_ingresso SET status = 'pago', mp_payment_id = ?
+            `UPDATE pedidos_ingresso SET status = 'pago', mp_payment_id = ?, pagamento_recusado_em = NULL
              WHERE id = ? AND status = 'pendente'`,
             [mpPaymentId, pedido.id]
         );
@@ -84,20 +125,75 @@ exports.confirmarPagamentoPedido = async (pedido, mpPaymentId) => {
         for (const item of itens) {
             await pedidoRepository.confirmarVendaLote(exec, item.lote_id, item.quantidade);
         }
+        for (const item of itens) {
+            ingressosEmitidos.push(...await emitirIngressosDoPedidoTx(exec, pedido.id, item.lote_id, item.quantidade));
+        }
         return true;
     });
 
-    if (!pagamentoConfirmadoAgora) return { jaPago: true };
-
-    if (pedido.cupom_id) await cupomRepository.incrementarUso(pedido.cupom_id);
-
-    const ingressos = [];
-    for (const item of itens) {
-        const emitidos = await emitirIngressosDoPedido(pedido.id, item.lote_id, item.quantidade);
-        ingressos.push(...emitidos);
+    if (pagamentoConfirmadoAgora) {
+        return { jaPago: false, ingressos: ingressosEmitidos };
     }
 
-    return { jaPago: false, ingressos };
+    const atual = await pedidoRepository.buscarPorId(pedido.id);
+
+    if (atual?.status === 'pago') return { jaPago: true };
+
+    if (atual?.status !== 'expirado') {
+        logger.error('Pagamento aprovado para pedido que não pode mais ser confirmado', {
+            pedido_id: pedido.id,
+            codigo_publico: pedido.codigo_publico,
+            status_atual: atual?.status,
+            payment_id: mpPaymentId
+        });
+        return { jaPago: true, precisaReconciliacao: true };
+    }
+
+    let ingressosResgatados = [];
+    const resgatado = await db.comTransacao(async (exec) => {
+        const marcado = await exec(
+            `UPDATE pedidos_ingresso SET status = 'pago', mp_payment_id = ?
+             WHERE id = ? AND status = 'expirado'`,
+            [mpPaymentId, pedido.id]
+        );
+        if (!marcado.affectedRows) return false;
+
+        for (const item of itens) {
+            await pedidoRepository.reservarLote(exec, item.lote_id, item.quantidade);
+            await pedidoRepository.confirmarVendaLote(exec, item.lote_id, item.quantidade);
+        }
+        if (pedido.cupom_id) {
+            try {
+                await cupomRepository.reservarUso(exec, pedido.cupom_id);
+            } catch (err) {
+                if (err.message !== 'CUPOM_ESGOTADO') throw err;
+            }
+        }
+        for (const item of itens) {
+            ingressosResgatados.push(...await emitirIngressosDoPedidoTx(exec, pedido.id, item.lote_id, item.quantidade));
+        }
+        return true;
+    }).catch((err) => {
+        if (err.message === 'ESTOQUE_INSUFICIENTE') return false;
+        throw err;
+    });
+
+    if (!resgatado) {
+        logger.error('Pagamento aprovado após expiração e sem estoque para resgatar — reconciliação manual necessária', {
+            pedido_id: pedido.id,
+            codigo_publico: pedido.codigo_publico,
+            payment_id: mpPaymentId
+        });
+        return { jaPago: true, precisaReconciliacao: true };
+    }
+
+    logger.warn('Pagamento aprovado após expiração — pedido resgatado com sucesso', {
+        pedido_id: pedido.id,
+        codigo_publico: pedido.codigo_publico,
+        payment_id: mpPaymentId
+    });
+
+    return { jaPago: false, ingressos: ingressosResgatados, resgatado: true };
 };
 
 exports.criarPedido = async (dados) => {
@@ -135,12 +231,7 @@ exports.criarPedido = async (dados) => {
         throw new AppError(400, `Limite de ${MAX_POR_EMAIL} ingressos por e-mail neste evento`);
     }
 
-    const subtotal = arredondar(Number(lote.preco) * qtd);
-    let repassa = Number(evento.repassa_taxa_comprador) === 1;
-    const cupomAplicado = await aplicarCupom(evento.id, cupom, subtotal);
-    let total = cupomAplicado.total;
-    const taxa = calcularTaxa(total, evento);
-    if (repassa) total = arredondar(total + taxa);
+    const { desconto, cupom_id, taxa, total } = await calcularPrecoPedido(evento, lote, qtd, cupom);
 
     const codigoPublico = crypto.randomBytes(8).toString('hex');
     const expiresAt = new Date(Date.now() + RESERVA_MIN * 60 * 1000);
@@ -150,6 +241,13 @@ exports.criarPedido = async (dados) => {
     try {
         pedidoId = await db.comTransacao(async (exec) => {
             await pedidoRepository.reservarLote(exec, lote.id, qtd);
+
+            const jaComprouNaTransacao = await pedidoRepository.contarIngressosPorEmailTx(exec, evento.id, email);
+            if (jaComprouNaTransacao + qtd > MAX_POR_EMAIL) {
+                throw new AppError(400, `Limite de ${MAX_POR_EMAIL} ingressos por e-mail neste evento`);
+            }
+
+            if (cupom_id) await cupomRepository.reservarUso(exec, cupom_id);
             const result = await exec(
                 `INSERT INTO pedidos_ingresso
                  (evento_id, codigo_publico, nome, email, status, canal, total, taxa_estimada, expires_at, cupom_id, desconto_aplicado)
@@ -162,8 +260,8 @@ exports.criarPedido = async (dados) => {
                     total,
                     taxa,
                     expiresSql,
-                    cupomAplicado.cupom_id,
-                    cupomAplicado.desconto
+                    cupom_id,
+                    desconto
                 ]
             );
             const id = result.insertId;
@@ -177,6 +275,9 @@ exports.criarPedido = async (dados) => {
         if (err.message === 'ESTOQUE_INSUFICIENTE') {
             throw new AppError(400, 'Estoque insuficiente');
         }
+        if (err.message === 'CUPOM_ESGOTADO') {
+            throw new AppError(400, 'Cupom esgotado');
+        }
         throw err;
     }
 
@@ -186,19 +287,56 @@ exports.criarPedido = async (dados) => {
     const mp = await mercadopagoService.criarPreferencia({
         titulo: `${evento.nome} · ${lote.nome}`,
         quantidade: qtd,
-        precoUnitario: arredondar(total / qtd),
+        total,
         codigoPedido: codigoPublico,
         email,
         lojaUrl,
         apiUrl
     });
 
-    await pedidoRepository.atualizarMpPaymentId(pedidoId, mp.preference_id);
+    await pedidoRepository.salvarPreferenciaCriada(pedidoId, {
+        preferenceId: mp.preference_id,
+        initPoint: mp.init_point
+    });
 
     return {
         codigo: codigoPublico,
         init_point: mp.init_point,
         expires_at: expiresSql,
+        total
+    };
+};
+
+exports.previsualizarPedido = async (dados) => {
+    const { lote_id, quantidade, cupom } = dados;
+    const qtd = Number(quantidade);
+
+    if (!Number.isInteger(qtd) || qtd <= 0 || qtd > MAX_POR_PEDIDO) {
+        throw new AppError(400, `Quantidade entre 1 e ${MAX_POR_PEDIDO}`);
+    }
+
+    let evento = null;
+    if (dados.evento_id) {
+        evento = await ingressoRepository.buscarConfigEvento(dados.evento_id);
+    } else if (dados.slug) {
+        evento = await ingressoRepository.buscarEventoPorSlug(dados.slug);
+    }
+
+    if (!evento) throw new AppError(404, 'Evento não encontrado');
+    if (!evento.venda_publicada) throw new AppError(400, 'Venda não publicada');
+
+    const lote = await ingressoRepository.buscarLotePorId(lote_id, evento.id);
+    if (!lote || !lote.ativo) throw new AppError(400, 'Lote indisponível');
+
+    const { subtotal, desconto, repassa, taxa, total, cupom_id } =
+        await calcularPrecoPedido(evento, lote, qtd, cupom);
+
+    return {
+        subtotal,
+        desconto,
+        cupom_aplicado: Boolean(cupom_id),
+        repassa_taxa_comprador: repassa,
+        taxa,
         total
     };
 };
@@ -251,6 +389,10 @@ exports.processarWebhook = async (body) => {
         return exports.confirmarPagamentoPedido(pedido, paymentId);
     }
 
+    if (['rejected', 'cancelled'].includes(pagamento.status) && pedido.status === 'pendente') {
+        await pedidoRepository.marcarPagamentoRecusado(pedido.id);
+    }
+
     return { status: pagamento.status };
 };
 
@@ -270,6 +412,7 @@ exports.expirarReservas = async () => {
             for (const item of itens) {
                 await pedidoRepository.liberarReservaLote(exec, item.lote_id, item.quantidade);
             }
+            if (pedido.cupom_id) await cupomRepository.liberarUso(exec, pedido.cupom_id);
             count += 1;
         });
     }
@@ -412,26 +555,43 @@ exports.cancelarPedido = async (eventoId, codigo, usuario) => {
     const itens = await pedidoRepository.buscarItensPedido(pedido.id);
     const statusAnterior = pedido.status;
 
-    const ok = await pedidoRepository.marcarCancelado(pedido.id);
-    if (!ok) throw new AppError(409, 'Não foi possível cancelar o pedido');
-
-    await pedidoRepository.cancelarIngressosDoPedido(pedido.id);
-
-    for (const item of itens) {
-        if (statusAnterior === 'pago') {
-            await pedidoRepository.devolverVendaLote(item.lote_id, item.quantidade);
-        } else if (statusAnterior === 'pendente') {
-            await new Promise((resolve, reject) => {
-                db.query(
-                    `UPDATE lotes_ingresso
-                     SET quantidade_reservada = GREATEST(0, quantidade_reservada - ?)
-                     WHERE id = ?`,
-                    [item.quantidade, item.lote_id],
-                    (err) => (err ? reject(err) : resolve())
-                );
+    if (statusAnterior === 'pago') {
+        if (!pedido.mp_payment_id) {
+            throw new AppError(409, 'Pedido pago sem identificador de pagamento do Mercado Pago — estorno manual necessário');
+        }
+        try {
+            await mercadopagoService.estornarPagamento(pedido.mp_payment_id);
+        } catch (err) {
+            logger.error('Falha ao estornar pagamento no Mercado Pago', {
+                pedido_id: pedido.id,
+                codigo_publico: pedido.codigo_publico,
+                mp_payment_id: pedido.mp_payment_id,
+                detalhe: err.message
             });
+            throw new AppError(502, 'Não foi possível estornar o pagamento no Mercado Pago. Pedido não foi cancelado.');
         }
     }
+
+    const ok = await db.comTransacao(async (exec) => {
+        const cancelado = await pedidoRepository.marcarCancelado(exec, pedido.id);
+        if (!cancelado) return false;
+
+        await pedidoRepository.cancelarIngressosDoPedido(exec, pedido.id);
+
+        for (const item of itens) {
+            if (statusAnterior === 'pago') {
+                await pedidoRepository.devolverVendaLote(exec, item.lote_id, item.quantidade);
+            } else if (statusAnterior === 'pendente') {
+                await pedidoRepository.liberarReservaLote(exec, item.lote_id, item.quantidade);
+            }
+        }
+
+        if (pedido.cupom_id) await cupomRepository.liberarUso(exec, pedido.cupom_id);
+
+        return true;
+    });
+
+    if (!ok) throw new AppError(409, 'Não foi possível cancelar o pedido');
 
     return {
         codigo_publico: pedido.codigo_publico,

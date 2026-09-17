@@ -83,8 +83,7 @@
         "security": [],
         "summary": "Cadastrar produtor (público)",
         "responses": {
-          "201": { "description": "Conta de produtor criada" },
-          "409": { "description": "E-mail já cadastrado" }
+          "201": { "description": "Sempre 201, exista ou não conta com esse e-mail (evita enumeração de contas)" }
         }
       }
     },

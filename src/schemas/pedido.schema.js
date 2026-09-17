@@ -14,6 +14,17 @@ exports.pedidoSchema = z.object({
     { message: 'Informe evento_id ou slug' }
 );
 
+exports.previsualizarPedidoSchema = z.object({
+    evento_id: z.coerce.number().int().positive().optional(),
+    slug: z.string().trim().min(2).max(120).optional(),
+    lote_id: z.coerce.number().int().positive(),
+    quantidade: z.coerce.number().int().positive().max(4),
+    cupom: z.string().trim().max(40).optional()
+}).refine(
+    (d) => d.evento_id || d.slug,
+    { message: 'Informe evento_id ou slug' }
+);
+
 exports.recuperarSchema = z.object({
     email: z.string().trim().email().max(255),
     codigo_pedido: z.string().trim().regex(/^[a-f0-9]{16}$/i, 'Código de pedido inválido')

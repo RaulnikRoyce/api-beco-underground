@@ -14,8 +14,16 @@ const authLimiter = rateLimit({
     message: { erro: 'Muitas tentativas. Aguarde 15 minutos.' }
 });
 
+const registrarLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { erro: 'Muitos cadastros a partir deste IP. Aguarde 1 hora.' }
+});
+
 router.post('/login', authLimiter, validarSchema(loginSchema), authController.login);
-router.post('/registrar', authLimiter, validarSchema(registrarSchema), authController.registrar);
+router.post('/registrar', registrarLimiter, validarSchema(registrarSchema), authController.registrar);
 
 router.patch(
     '/senha',
