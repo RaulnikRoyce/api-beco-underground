@@ -14,6 +14,12 @@ async function rodar() {
     } catch (err) {
         logger.error('Falha ao rodar expiração de reservas', { detalhe: err.message });
     }
+    try {
+        await pedidoService.retomarCancelamentos();
+    } catch (err) {
+        logger.error('Falha ao retomar cancelamentos', { detalhe: err.message });
+    }
+
 }
 
 function iniciar({ intervaloMs = Number(process.env.INGRESSOS_EXPIRACAO_INTERVALO_MS) || INTERVALO_PADRAO_MS } = {}) {

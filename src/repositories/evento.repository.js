@@ -3,7 +3,7 @@ const db = require('../database/db');
 const ORDENAR = {
     data_desc: 'data DESC, id DESC',
     data_asc: 'data ASC, id ASC',
-    nome: 'nome ASC'
+    nome: 'nome ASC, id ASC'
 };
 
 const SELECT_EVENTO = `SELECT id, nome, DATE_FORMAT(data, '%Y-%m-%d') AS data, local, criado_por,

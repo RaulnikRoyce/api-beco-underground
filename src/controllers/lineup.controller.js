@@ -4,7 +4,7 @@ const { ok, criado, mensagem } = require('../utils/resposta');
 
 exports.adicionarBanda = asyncHandler(async (req, res) => {
     const { evento_id, banda_id, horario, cache_negociado } = req.body;
-    const lineup = await lineupService.adicionarNaLineup(evento_id, banda_id, horario, cache_negociado);
+    const lineup = await lineupService.adicionarNaLineup(evento_id, banda_id, horario, cache_negociado, req.usuario);
     criado(res, 'Artista escalado', { lineup });
 });
 
@@ -13,11 +13,11 @@ exports.listarLineup = asyncHandler(async (req, res) => {
 });
 
 exports.atualizarSlot = asyncHandler(async (req, res) => {
-    const slot = await lineupService.atualizarSlot(req.params.id, req.body);
+    const slot = await lineupService.atualizarSlot(req.params.id, req.body, req.usuario);
     ok(res, slot);
 });
 
 exports.removerSlot = asyncHandler(async (req, res) => {
-    await lineupService.removerSlot(req.params.id);
+    await lineupService.removerSlot(req.params.id, req.usuario);
     mensagem(res, 'Artista removido da lineup');
 });

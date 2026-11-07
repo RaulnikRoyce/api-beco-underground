@@ -8,6 +8,15 @@ const cupomRepository = require('../src/repositories/cupom.repository');
 const mercadopagoService = require('../src/services/mercadopago.service');
 const db = require('../src/database/db');
 
+const cancelamentoRepository = require('../src/repositories/cancelamento.repository');
+test.beforeEach((t) => {
+    t.mock.method(cancelamentoRepository, 'preparar', async () => {});
+    t.mock.method(cancelamentoRepository, 'assumir', async () => ({ pedido_id: 9, payment_id: '555', chave: 'chave-estorno-teste', lease_token: 'lease-teste' }));
+    t.mock.method(cancelamentoRepository, 'liberar', async () => {});
+    t.mock.method(cancelamentoRepository, 'concluir', async () => {});
+    t.mock.method(pedidoRepository, 'buscarParaCancelamento', async () => ({ id: 9, status: 'pago', mp_payment_id: '555', cupom_id: null }));
+});
+
 const ADMIN = { id: 1, perfil: 'admin' };
 
 function mockar(objeto, metodo, implementacao) {
@@ -17,7 +26,7 @@ function mockar(objeto, metodo, implementacao) {
 }
 
 function mockarTransacao() {
-    return mockar(db, 'comTransacao', async (trabalho) => trabalho(async () => ({ affectedRows: 1 })));
+    return mockar(db, 'comTransacao', async (trabalho) => trabalho(async (sql) => sql.startsWith('SELECT lease_token') ? [{ lease_token: 'lease-teste' }] : sql.startsWith('SELECT id') ? [{ id: 9 }] : { affectedRows: 1 }));
 }
 
 test('cancelar pedido pago estorna no Mercado Pago antes de mexer em estoque/ingresso', async () => {

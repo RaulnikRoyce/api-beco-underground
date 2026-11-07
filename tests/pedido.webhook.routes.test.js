@@ -94,3 +94,38 @@ test('webhook processa normalmente sem checar assinatura quando MP_WEBHOOK_SECRE
         pedidoService.processarWebhook = original;
     }
 });
+
+for (const scenario of [
+    { name: 'query somente', query: '?data.id=123', body: {}, status: 200 },
+    { name: 'body somente', query: '', body: { data: { id: '123' } }, status: 200 },
+    { name: 'id externo de notificacao', query: '?data.id=123', body: { id: 'notificacao', data: { id: '123' } }, status: 200 },
+    { name: 'query e body divergentes', query: '?data.id=123', body: { data: { id: '456' } }, status: 400 },
+    { name: 'queries divergentes', query: '?data.id=123&id=456', body: {}, status: 400 }
+]) {
+    test(`webhook usa o mesmo ID para assinatura e processamento: ${scenario.name}`, async (t) => {
+        const original = process.env.MP_WEBHOOK_SECRET;
+        process.env.MP_WEBHOOK_SECRET = 'segredo-ficticio';
+        const processar = t.mock.method(pedidoService, 'processarWebhook', async (_body, id) => {
+            assert.equal(id, '123');
+            return { ignorado: true };
+        });
+        try {
+            await comServidor(async (base) => {
+                const response = await fetch(`${base}/ingressos/webhook${scenario.query}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-request-id': 'req-teste',
+                        'x-signature': assinar('segredo-ficticio', { dataId: '123', xRequestId: 'req-teste', ts: '1700000000' })
+                    },
+                    body: JSON.stringify(scenario.body)
+                });
+                assert.equal(response.status, scenario.status);
+                assert.equal(processar.mock.callCount(), scenario.status === 200 ? 1 : 0);
+            });
+        } finally {
+            if (original === undefined) delete process.env.MP_WEBHOOK_SECRET;
+            else process.env.MP_WEBHOOK_SECRET = original;
+        }
+    });
+}

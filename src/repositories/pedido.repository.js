@@ -4,7 +4,8 @@ exports.buscarPorCodigo = (codigo) => new Promise((resolve, reject) => {
     db.query(
         `SELECT id, evento_id, codigo_publico, nome, email, status, canal,
                 mp_payment_id, mp_preference_id, total, taxa_estimada, expires_at, criado_em,
-                desconto_aplicado, cupom_id, pagamento_recusado_em, mp_init_point
+                desconto_aplicado, cupom_id, pagamento_recusado_em, mp_init_point,
+                EXISTS(SELECT 1 FROM cancelamentos_ingresso c WHERE c.pedido_id=pedidos_ingresso.id AND c.status='pendente') AS cancelamento_pendente
          FROM pedidos_ingresso WHERE codigo_publico = ?`,
         [codigo],
         (err, rows) => {
@@ -161,6 +162,7 @@ exports.buscarIngressoPorCodigo = (codigo) => new Promise((resolve, reject) => {
     db.query(
         `SELECT ie.id, ie.codigo, ie.status, ie.usado_em, ie.pedido_id, ie.lote_id,
                 p.evento_id, p.nome AS comprador_nome, p.email, p.status AS pedido_status,
+                EXISTS(SELECT 1 FROM cancelamentos_ingresso c WHERE c.pedido_id=p.id AND c.status='pendente') AS cancelamento_pendente,
                 l.nome AS lote_nome, e.nome AS evento_nome,
                 DATE_FORMAT(e.data, '%Y-%m-%d') AS evento_data, e.local AS evento_local
          FROM ingressos_emitidos ie
@@ -178,8 +180,10 @@ exports.buscarIngressoPorCodigo = (codigo) => new Promise((resolve, reject) => {
 
 exports.marcarIngressoUsado = (codigo, adminId) => new Promise((resolve, reject) => {
     db.query(
-        `UPDATE ingressos_emitidos SET status = 'usado', usado_em = ?, usado_por = ?
-         WHERE codigo = ? AND status = 'valido'`,
+        `UPDATE ingressos_emitidos ie JOIN pedidos_ingresso p ON p.id=ie.pedido_id
+         SET ie.status = 'usado', ie.usado_em = ?, ie.usado_por = ?
+         WHERE ie.codigo = ? AND ie.status = 'valido' AND p.status='pago'
+         AND NOT EXISTS (SELECT 1 FROM cancelamentos_ingresso c WHERE c.pedido_id=p.id AND c.status='pendente')`,
         [new Date(), adminId, codigo],
         (err, result) => {
             if (err) return reject(err);
@@ -287,11 +291,11 @@ exports.buscarPorCodigoEEvento = (codigo, eventoId) => new Promise((resolve, rej
     );
 });
 
-exports.marcarCancelado = (exec, pedidoId) =>
+exports.marcarCancelado = (exec, pedidoId, statusAnterior) =>
     exec(
         `UPDATE pedidos_ingresso SET status = 'cancelado'
-         WHERE id = ? AND status IN ('pendente', 'pago')`,
-        [pedidoId]
+         WHERE id = ? AND status = ?`,
+        [pedidoId, statusAnterior]
     ).then((result) => result.affectedRows > 0);
 
 exports.cancelarIngressosDoPedido = (exec, pedidoId) =>
@@ -315,4 +319,9 @@ exports.limparVinculosLoteInativos = (loteId) => db.comTransacao(async (exec) =>
         [loteId]
     );
     return true;
+});
+
+exports.buscarParaCancelamento = (pedidoId) => new Promise((resolve, reject) => {
+    db.query('SELECT id, evento_id, codigo_publico, status, mp_payment_id, cupom_id FROM pedidos_ingresso WHERE id = ?',
+        [pedidoId], (err, rows) => err ? reject(err) : resolve(rows[0]));
 });

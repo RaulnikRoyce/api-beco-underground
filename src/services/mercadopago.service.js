@@ -103,9 +103,16 @@ exports.criarPreferencia = async (dados) => {
 
 exports.obterPagamento = (paymentId) => mpFetch(`/v1/payments/${paymentId}`);
 
-exports.estornarPagamento = (paymentId) => mpFetch(`/v1/payments/${paymentId}/refunds`, {
-    method: 'POST'
-});
+exports.estornarPagamento = async (paymentId, chave) => {
+    if (!chave) throw new Error('Estorno exige chave de idempotência persistida.');
+    const resposta = await mpFetch(`/v1/payments/${paymentId}/refunds`, {
+        method: 'POST',
+        headers: { 'X-Idempotency-Key': chave },
+        signal: AbortSignal.timeout(15000)
+    });
+    if (resposta.status !== 'approved' || String(resposta.payment_id) !== String(paymentId)) throw new AppError(502, 'O estorno ainda não foi confirmado para este pagamento.');
+    return resposta;
+};
 
 exports.extrairPaymentId = (body) => {
     const id = body?.data?.id ?? body?.id;

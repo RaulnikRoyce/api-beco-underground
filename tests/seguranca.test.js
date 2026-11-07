@@ -193,52 +193,35 @@ test('webhook de pagamento recusado marca o pedido sem mudar o status nem emitir
     }
 });
 
-test('pedido pago sem nenhum ingresso é reparado numa nova entrega do webhook', async () => {
-    const pedidoRepository = require('../src/repositories/pedido.repository');
-    const originais = {
-        buscarIngressosPorPedido: ingressoRepository.buscarIngressosPorPedido,
-        buscarItensPedido: pedidoRepository.buscarItensPedido,
-        criarIngressoEmitido: ingressoRepository.criarIngressoEmitido
-    };
+test('pedido pago sem nenhum ingresso é reparado numa transação', async (t) => {
     let emissoes = 0;
-
-    ingressoRepository.buscarIngressosPorPedido = async () => [];
-    pedidoRepository.buscarItensPedido = async () => [{ lote_id: 1, quantidade: 2 }];
-    ingressoRepository.criarIngressoEmitido = async () => { emissoes += 1; return { id: emissoes, codigo: 'x'.repeat(24) }; };
-
-    try {
-        const resultado = await pedidoService.confirmarPagamentoPedido(
-            { id: 42, status: 'pago', codigo_publico: 'abc' },
-            '99'
-        );
-        assert.equal(resultado.jaPago, true);
-        assert.equal(resultado.ingressos.length, 2);
-        assert.equal(emissoes, 2);
-    } finally {
-        ingressoRepository.buscarIngressosPorPedido = originais.buscarIngressosPorPedido;
-        pedidoRepository.buscarItensPedido = originais.buscarItensPedido;
-        ingressoRepository.criarIngressoEmitido = originais.criarIngressoEmitido;
-    }
+    t.mock.method(db, 'comTransacao', async (trabalho) => trabalho(async (sql) => {
+        if (sql.startsWith('SELECT status')) return [{ status: 'pago' }];
+        if (sql.includes('FROM cancelamentos_ingresso')) return [];
+        if (sql.includes('FROM itens_pedido')) return [{ lote_id: 1, quantidade: 2 }];
+        if (sql.includes('FROM ingressos_emitidos')) return [];
+        if (sql.startsWith('INSERT INTO ingressos_emitidos')) return { insertId: ++emissoes };
+        throw new Error('SQL inesperado no teste');
+    }));
+    const resultado = await pedidoService.confirmarPagamentoPedido({ id: 42, status: 'pago' }, '99');
+    assert.equal(resultado.jaPago, true);
+    assert.equal(resultado.ingressos.length, 2);
+    assert.equal(emissoes, 2);
 });
 
-test('pedido pago que já tem ingresso não reemite em reentrega do webhook', async () => {
-    const originais = {
-        buscarIngressosPorPedido: ingressoRepository.buscarIngressosPorPedido,
-        criarIngressoEmitido: ingressoRepository.criarIngressoEmitido
-    };
+test('pedido pago completo não reemite em reentrega', async (t) => {
     let emissoes = 0;
-
-    ingressoRepository.buscarIngressosPorPedido = async () => [{ id: 1, codigo: 'x'.repeat(24) }];
-    ingressoRepository.criarIngressoEmitido = async () => { emissoes += 1; return {}; };
-
-    try {
-        const resultado = await pedidoService.confirmarPagamentoPedido({ id: 42, status: 'pago' }, '99');
-        assert.deepEqual(resultado, { jaPago: true });
-        assert.equal(emissoes, 0);
-    } finally {
-        ingressoRepository.buscarIngressosPorPedido = originais.buscarIngressosPorPedido;
-        ingressoRepository.criarIngressoEmitido = originais.criarIngressoEmitido;
-    }
+    t.mock.method(db, 'comTransacao', async (trabalho) => trabalho(async (sql) => {
+        if (sql.startsWith('SELECT status')) return [{ status: 'pago' }];
+        if (sql.includes('FROM cancelamentos_ingresso')) return [];
+        if (sql.includes('FROM itens_pedido')) return [{ lote_id: 1, quantidade: 1 }];
+        if (sql.includes('FROM ingressos_emitidos')) return [{ id: 1, codigo: 'x'.repeat(24), lote_id: 1, status: 'valido' }];
+        if (sql.startsWith('INSERT')) { emissoes += 1; return { insertId: 2 }; }
+        throw new Error('SQL inesperado no teste');
+    }));
+    const resultado = await pedidoService.confirmarPagamentoPedido({ id: 42, status: 'pago' }, '99');
+    assert.deepEqual(resultado, { jaPago: true });
+    assert.equal(emissoes, 0);
 });
 
 test('pagamento confirmado emite ingresso dentro da mesma transação — falha na emissão desfaz tudo', async () => {
@@ -450,6 +433,101 @@ test('produtor não vê cachê da banda em GET /eventos?include=lineup (achado M
     } finally {
         eventoRepository.buscarTodos = originais.buscarTodos;
         lineupRepository.buscarPorEventos = originais.buscarPorEventos;
+    }
+});
+
+test('produtor não edita, remove nem escala lineup de evento de outro produtor', async () => {
+    const lineupService = require('../src/services/lineup.service');
+    const lineupRepository = require('../src/repositories/lineup.repository');
+    const originais = {
+        buscarPorIdEvento: eventoRepository.buscarPorId,
+        buscarPorIdSlot: lineupRepository.buscarPorId,
+        atualizar: lineupRepository.atualizar,
+        excluir: lineupRepository.excluir
+    };
+
+    eventoRepository.buscarPorId = async () => ({ id: 1, criado_por: 7 });
+    lineupRepository.buscarPorId = async () => ({ id: 1, evento_id: 1 });
+    lineupRepository.atualizar = async () => ({ id: 1 });
+    lineupRepository.excluir = async () => true;
+
+    try {
+        await assert.rejects(
+            lineupService.atualizarSlot(1, { horario: '23:00' }, { id: 3, perfil: 'produtor' }),
+            /Sem permissão/
+        );
+        await assert.rejects(
+            lineupService.removerSlot(1, { id: 3, perfil: 'produtor' }),
+            /Sem permissão/
+        );
+        await assert.rejects(
+            lineupService.adicionarNaLineup(1, 5, null, null, { id: 3, perfil: 'produtor' }),
+            /Sem permissão/
+        );
+
+        const slotAtualizado = await lineupService.atualizarSlot(1, { horario: '23:00' }, { id: 7, perfil: 'produtor' });
+        assert.equal(slotAtualizado.id, 1);
+        await lineupService.removerSlot(1, { id: 99, perfil: 'admin' });
+    } finally {
+        eventoRepository.buscarPorId = originais.buscarPorIdEvento;
+        lineupRepository.buscarPorId = originais.buscarPorIdSlot;
+        lineupRepository.atualizar = originais.atualizar;
+        lineupRepository.excluir = originais.excluir;
+    }
+});
+
+test('produtor não cria nem lista cupom de evento de outro produtor', async () => {
+    const cupomRepository = require('../src/repositories/cupom.repository');
+    const originais = {
+        buscarPorId: eventoRepository.buscarPorId,
+        listarPorEvento: cupomRepository.listarPorEvento,
+        criar: cupomRepository.criar
+    };
+
+    eventoRepository.buscarPorId = async () => ({ id: 1, criado_por: 7 });
+    cupomRepository.listarPorEvento = async () => ([{ id: 1, codigo: 'PROMO' }]);
+    cupomRepository.criar = async () => ({ id: 1, codigo: 'PROMO' });
+
+    try {
+        await assert.rejects(
+            pedidoService.listarCupons(1, { id: 3, perfil: 'produtor' }),
+            /Sem permissão/
+        );
+        await assert.rejects(
+            pedidoService.criarCupom(1, { id: 3, perfil: 'produtor' }, { codigo: 'PROMO', desconto_percentual: 10 }),
+            /Sem permissão/
+        );
+
+        const lista = await pedidoService.listarCupons(1, { id: 7, perfil: 'produtor' });
+        assert.equal(lista.length, 1);
+    } finally {
+        eventoRepository.buscarPorId = originais.buscarPorId;
+        cupomRepository.listarPorEvento = originais.listarPorEvento;
+        cupomRepository.criar = originais.criar;
+    }
+});
+
+test('produtor não vê dashboard financeiro de evento de outro produtor', async () => {
+    const dashboardService = require('../src/services/dashboard.service');
+    const dashboardRepository = require('../src/repositories/dashboard.repository');
+    const originais = {
+        buscarPorId: eventoRepository.buscarPorId,
+        obterResumoDoEvento: dashboardRepository.obterResumoDoEvento
+    };
+
+    eventoRepository.buscarPorId = async () => ({ id: 1, criado_por: 7 });
+    dashboardRepository.obterResumoDoEvento = async () => ({ receita: 500 });
+
+    try {
+        await assert.rejects(
+            dashboardService.obterResumo(1, { id: 3, perfil: 'produtor' }),
+            /Sem permissão/
+        );
+        const resumo = await dashboardService.obterResumo(1, { id: 7, perfil: 'produtor' });
+        assert.equal(resumo.receita, 500);
+    } finally {
+        eventoRepository.buscarPorId = originais.buscarPorId;
+        dashboardRepository.obterResumoDoEvento = originais.obterResumoDoEvento;
     }
 });
 

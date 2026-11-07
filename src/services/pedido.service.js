@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const cancelamentoRepository = require('../repositories/cancelamento.repository');
 const db = require('../database/db');
 const ingressoRepository = require('../repositories/ingresso.repository');
 const pedidoRepository = require('../repositories/pedido.repository');
@@ -83,32 +84,32 @@ const emitirIngressosDoPedidoTx = async (exec, pedidoId, loteId, quantidade) => 
     return ingressos;
 };
 
-exports.confirmarPagamentoPedido = async (pedido, mpPaymentId) => {
-    if (pedido.status === 'pago') {
-        const existentes = await ingressoRepository.buscarIngressosPorPedido(pedido.id);
-        if (existentes.length) return { jaPago: true };
+async function repararIngressos(pedidoId) {
+    return db.comTransacao(async (exec) => {
+        const rows = await exec('SELECT status FROM pedidos_ingresso WHERE id = ? FOR UPDATE', [pedidoId]);
+        if (rows[0]?.status !== 'pago') throw new AppError(409, 'Pedido não está pago para reparar ingressos.');
+        const cancelamentos = await exec("SELECT pedido_id FROM cancelamentos_ingresso WHERE pedido_id = ? AND status = 'pendente'", [pedidoId]);
+        if (cancelamentos.length) throw new AppError(409, 'Cancelamento em processamento.');
+        const itens = await exec('SELECT lote_id, quantidade FROM itens_pedido WHERE pedido_id = ?', [pedidoId]);
+        if (!itens.length) throw new AppError(500, 'Pedido sem itens');
+        const existentes = await exec('SELECT id, codigo, lote_id, status FROM ingressos_emitidos WHERE pedido_id = ? ORDER BY id FOR UPDATE', [pedidoId]);
+        const quantidades = new Map();
+        for (const item of itens) quantidades.set(item.lote_id, (quantidades.get(item.lote_id) || 0) + Number(item.quantidade));
+        for (const ingresso of existentes) {
+            if (!quantidades.has(ingresso.lote_id) || ingresso.status === 'cancelado') throw new AppError(409, 'Emissão inconsistente; revisão manual necessária.');
+            quantidades.set(ingresso.lote_id, quantidades.get(ingresso.lote_id) - 1);
+        }
+        const novos = [];
+        for (const [loteId, faltam] of quantidades) {
+            if (faltam < 0) throw new AppError(409, 'Emissão excedente; revisão manual necessária.');
+            novos.push(...await emitirIngressosDoPedidoTx(exec, pedidoId, loteId, faltam));
+        }
+        return novos.length ? { jaPago: true, ingressos: novos } : { jaPago: true };
+    });
+}
 
-        const itensParaReparo = await pedidoRepository.buscarItensPedido(pedido.id);
-        const ingressosReparados = [];
-        for (const item of itensParaReparo) {
-            for (let i = 0; i < item.quantidade; i += 1) {
-                const codigo = crypto.randomBytes(12).toString('hex');
-                ingressosReparados.push(await ingressoRepository.criarIngressoEmitido({
-                    codigo,
-                    pedido_id: pedido.id,
-                    lote_id: item.lote_id
-                }));
-            }
-        }
-        if (ingressosReparados.length) {
-            logger.warn('Ingressos emitidos em reparo — pedido estava pago sem nenhum ingresso', {
-                pedido_id: pedido.id,
-                codigo_publico: pedido.codigo_publico,
-                quantidade: ingressosReparados.length
-            });
-        }
-        return { jaPago: true, ingressos: ingressosReparados };
-    }
+exports.confirmarPagamentoPedido = async (pedido, mpPaymentId) => {
+    if (pedido.status === 'pago') return repararIngressos(pedido.id);
 
     const itens = await pedidoRepository.buscarItensPedido(pedido.id);
     if (!itens.length) throw new AppError(500, 'Pedido sem itens');
@@ -351,15 +352,15 @@ exports.obterPedidoPublico = async (codigo) => {
     ]);
 
     let ingressos = [];
-    if (pedido.status === 'pago') {
+    if (pedido.status === 'pago' && !pedido.cancelamento_pendente) {
         ingressos = await ingressoRepository.buscarIngressosPorPedido(pedido.id);
     }
 
     return { pedido, evento, itens, ingressos };
 };
 
-exports.processarWebhook = async (body) => {
-    const paymentId = mercadopagoService.extrairPaymentId(body);
+exports.processarWebhook = async (body, idValidado) => {
+    const paymentId = idValidado === undefined ? mercadopagoService.extrairPaymentId(body) : idValidado;
     if (!paymentId) return { ignorado: true };
 
     const pagamento = await mercadopagoService.obterPagamento(paymentId);
@@ -381,9 +382,6 @@ exports.processarWebhook = async (body) => {
         throw new AppError(400, 'Pagamento não corresponde ao pedido');
     }
 
-    if (pedido.mp_payment_id === paymentId && pedido.status === 'pago') {
-        return { jaProcessado: true };
-    }
 
     if (pagamento.status === 'approved') {
         return exports.confirmarPagamentoPedido(pedido, paymentId);
@@ -424,6 +422,7 @@ exports.obterIngressoPublico = async (codigo) => {
     const ingresso = await pedidoRepository.buscarIngressoPorCodigo(codigo);
     if (!ingresso) throw new AppError(404, 'Ingresso não encontrado');
     if (ingresso.pedido_status !== 'pago') throw new AppError(400, 'Pedido não pago');
+    if (ingresso.cancelamento_pendente) throw new AppError(409, 'Cancelamento em processamento. Ingresso suspenso.');
     return ingresso;
 };
 
@@ -433,6 +432,7 @@ exports.checkin = async (codigo, usuario) => {
     const ingresso = await pedidoRepository.buscarIngressoPorCodigo(codigo);
     if (!ingresso) throw new AppError(404, 'Ingresso inválido');
     if (ingresso.pedido_status !== 'pago') throw new AppError(400, 'Pedido não pago');
+    if (ingresso.cancelamento_pendente) throw new AppError(409, 'Cancelamento em processamento. Ingresso suspenso.');
 
     if (ingresso.status === 'usado') {
         return { valido: false, motivo: 'ja_usado', ingresso };
@@ -476,6 +476,20 @@ exports.compradoresCsv = async (eventoId, usuario, filtros) => {
     return linhas.join('\n');
 };
 
+exports.listarCupons = async (eventoId, usuario) => {
+    const evento = await eventoRepository.buscarPorId(eventoId);
+    if (!evento) throw new AppError(404, 'Evento não encontrado');
+    if (!podeEditarEvento(evento, usuario)) throw new AppError(403, 'Sem permissão');
+    return cupomRepository.listarPorEvento(eventoId);
+};
+
+exports.criarCupom = async (eventoId, usuario, dados) => {
+    const evento = await eventoRepository.buscarPorId(eventoId);
+    if (!evento) throw new AppError(404, 'Evento não encontrado');
+    if (!podeEditarEvento(evento, usuario)) throw new AppError(403, 'Sem permissão');
+    return cupomRepository.criar({ ...dados, evento_id: eventoId });
+};
+
 exports.listaPortaHtml = async (eventoId, usuario) => {
     const evento = await eventoRepository.buscarPorId(eventoId);
     if (!evento) throw new AppError(404, 'Evento não encontrado');
@@ -508,6 +522,7 @@ exports.recuperarIngresso = async ({ email, codigo_pedido }) => {
         throw new AppError(403, 'E-mail não confere com o pedido');
     }
     if (pedido.status !== 'pago') throw new AppError(400, 'Pedido ainda não pago');
+    if (pedido.cancelamento_pendente) throw new AppError(409, 'Cancelamento em processamento. Ingressos suspensos.');
 
     const ingressos = await ingressoRepository.buscarIngressosPorPedido(pedido.id);
     return { pedido: { codigo: pedido.codigo_publico, nome: pedido.nome }, ingressos };
@@ -537,65 +552,75 @@ exports.obterFinanceiroDashboard = async (usuario) => {
     };
 };
 
+async function concluirCancelamento(pedido, statusAnterior, itens, tarefa) {
+    return db.comTransacao(async (exec) => {
+        if (tarefa) {
+            await exec('SELECT id FROM pedidos_ingresso WHERE id = ? FOR UPDATE', [pedido.id]);
+            const lease = await exec("SELECT lease_token FROM cancelamentos_ingresso WHERE pedido_id = ? AND status = 'pendente' FOR UPDATE", [pedido.id]);
+            if (lease[0]?.lease_token !== tarefa.lease_token) throw new AppError(409, 'Outra execução assumiu o cancelamento.');
+        }
+        const cancelado = await pedidoRepository.marcarCancelado(exec, pedido.id, statusAnterior);
+        if (!cancelado) throw new AppError(409, 'O pedido mudou. Atualize antes de cancelar.');
+        await pedidoRepository.cancelarIngressosDoPedido(exec, pedido.id);
+        for (const item of itens) {
+            if (statusAnterior === 'pago') await pedidoRepository.devolverVendaLote(exec, item.lote_id, item.quantidade);
+            else await pedidoRepository.liberarReservaLote(exec, item.lote_id, item.quantidade);
+        }
+        if (pedido.cupom_id) await cupomRepository.liberarUso(exec, pedido.cupom_id);
+        if (tarefa) await cancelamentoRepository.concluir(exec, tarefa);
+    });
+}
+
+async function processarCancelamentoPago(pedidoId) {
+    const tarefa = await cancelamentoRepository.assumir(pedidoId);
+    try {
+        const pedido = await pedidoRepository.buscarParaCancelamento(pedidoId);
+        if (!pedido || pedido.status !== 'pago' || String(pedido.mp_payment_id) !== tarefa.payment_id) {
+            throw new AppError(409, 'Pedido não corresponde ao cancelamento pendente.');
+        }
+        const itens = await pedidoRepository.buscarItensPedido(pedido.id);
+        try {
+            await mercadopagoService.estornarPagamento(tarefa.payment_id, tarefa.chave);
+        } catch (err) {
+            logger.error('Falha ao estornar pagamento', { pedido_id: pedidoId, detalhe: err.message });
+            throw new AppError(502, 'Não foi possível estornar o pagamento agora. Cancelamento aguardando nova tentativa; ingressos suspensos.');
+        }
+        await concluirCancelamento(pedido, 'pago', itens, tarefa);
+    } catch (err) {
+        await cancelamentoRepository.liberar(tarefa, err).catch((falha) => logger.error('Falha ao liberar retomada do cancelamento', { pedido_id: pedidoId, detalhe: falha.message }));
+        throw err;
+    }
+}
+
 exports.cancelarPedido = async (eventoId, codigo, usuario) => {
     if (usuario.perfil !== 'admin') throw new AppError(403, 'Só admin pode cancelar pedidos');
-
     const evento = await eventoRepository.buscarPorId(eventoId);
     if (!evento) throw new AppError(404, 'Evento não encontrado');
     if (!podeEditarEvento(evento, usuario)) throw new AppError(403, 'Sem permissão');
-
     const pedido = await pedidoRepository.buscarPorCodigoEEvento(codigo, eventoId);
     if (!pedido) throw new AppError(404, 'Pedido não encontrado');
-    if (pedido.status === 'cancelado') throw new AppError(400, 'Pedido já está cancelado');
-    if (pedido.status === 'expirado') throw new AppError(400, 'Pedido expirado não precisa cancelar');
-    if (!['pendente', 'pago'].includes(pedido.status)) {
-        throw new AppError(400, 'Status do pedido não permite cancelamento');
-    }
-
+    if (!['pendente', 'pago'].includes(pedido.status)) throw new AppError(400, 'Status do pedido não permite cancelamento');
     const itens = await pedidoRepository.buscarItensPedido(pedido.id);
-    const statusAnterior = pedido.status;
+    if (pedido.status === 'pago') {
+        if (!pedido.mp_payment_id) throw new AppError(409, 'Pedido pago sem identificador de pagamento; estorno manual necessário');
+        await cancelamentoRepository.preparar(pedido);
+        await processarCancelamentoPago(pedido.id);
+    } else {
+        await concluirCancelamento(pedido, 'pendente', itens);
+    }
+    return { codigo_publico: pedido.codigo_publico, status: 'cancelado', status_anterior: pedido.status };
+};
 
-    if (statusAnterior === 'pago') {
-        if (!pedido.mp_payment_id) {
-            throw new AppError(409, 'Pedido pago sem identificador de pagamento do Mercado Pago — estorno manual necessário');
-        }
+exports.retomarCancelamentos = async () => {
+    const tarefas = await cancelamentoRepository.pendentes();
+    let concluidos = 0;
+    for (const tarefa of tarefas) {
         try {
-            await mercadopagoService.estornarPagamento(pedido.mp_payment_id);
+            await processarCancelamentoPago(tarefa.pedido_id);
+            concluidos += 1;
         } catch (err) {
-            logger.error('Falha ao estornar pagamento no Mercado Pago', {
-                pedido_id: pedido.id,
-                codigo_publico: pedido.codigo_publico,
-                mp_payment_id: pedido.mp_payment_id,
-                detalhe: err.message
-            });
-            throw new AppError(502, 'Não foi possível estornar o pagamento no Mercado Pago. Pedido não foi cancelado.');
+            logger.error('Cancelamento aguardando retomada', { pedido_id: tarefa.pedido_id, detalhe: err.message });
         }
     }
-
-    const ok = await db.comTransacao(async (exec) => {
-        const cancelado = await pedidoRepository.marcarCancelado(exec, pedido.id);
-        if (!cancelado) return false;
-
-        await pedidoRepository.cancelarIngressosDoPedido(exec, pedido.id);
-
-        for (const item of itens) {
-            if (statusAnterior === 'pago') {
-                await pedidoRepository.devolverVendaLote(exec, item.lote_id, item.quantidade);
-            } else if (statusAnterior === 'pendente') {
-                await pedidoRepository.liberarReservaLote(exec, item.lote_id, item.quantidade);
-            }
-        }
-
-        if (pedido.cupom_id) await cupomRepository.liberarUso(exec, pedido.cupom_id);
-
-        return true;
-    });
-
-    if (!ok) throw new AppError(409, 'Não foi possível cancelar o pedido');
-
-    return {
-        codigo_publico: pedido.codigo_publico,
-        status: 'cancelado',
-        status_anterior: statusAnterior
-    };
+    return { concluidos };
 };

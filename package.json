@@ -13,7 +13,8 @@
     "job:expirar-reservas": "node src/jobs/expirar-reservas.js",
     "test": "node --require ./tests/setup-env.cjs --test --test-concurrency=1 ./tests/auth.middleware.test.js ./tests/evento.service.test.js ./tests/ingresso.service.test.js ./tests/mysql-datetime.test.js ./tests/pedido.schema.test.js ./tests/ingresso.schema.test.js ./tests/pedido.preco.test.js ./tests/agendador-expiracao.test.js ./tests/pedido.cancelamento.test.js ./tests/ingresso.presencial.test.js ./tests/ingresso.routes.test.js ./tests/pedido.expiracao.test.js ./tests/pedido.timezone.test.js ./tests/pedido.webhook.routes.test.js ./tests/pedido.lote-limpeza.test.js ./tests/pedido.rate-limit-publico.test.js ./tests/mercadopago.erro.test.js ./tests/pedido.mp-ids.test.js ./tests/ingresso.slug.test.js ./tests/auth.registrar.test.js ./tests/limitador-login.test.js ./tests/auth.autenticar.test.js ./tests/usuario.regras.test.js ./tests/publico.regras.test.js ./tests/publico.test.js ./tests/jwt.test.js ./tests/health.test.js ./tests/env.test.js ./tests/seguranca.test.js",
     "lint": "eslint src tests server.js",
-    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\" server.js"
+    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\" server.js",
+    "test:integration": "node tests/integration/finance.cjs && node tests/integration/http.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -29,5 +30,8 @@
   "devDependencies": {
     "eslint": "^8.57.1",
     "prettier": "^3.6.2"
+  },
+  "overrides": {
+    "js-yaml": "^4.3.2"
   }
 }

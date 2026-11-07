@@ -73,6 +73,18 @@ const colunasPosTabelas = [
 ];
 
 const tabelas = [
+    { nome: 'cancelamentos_ingresso', sql: `CREATE TABLE IF NOT EXISTS cancelamentos_ingresso (
+    pedido_id INT NOT NULL PRIMARY KEY,
+    payment_id VARCHAR(64) NOT NULL,
+    chave VARCHAR(64) NOT NULL UNIQUE,
+    status ENUM('pendente', 'concluido') NOT NULL DEFAULT 'pendente',
+    lease_token VARCHAR(64) NULL,
+    lease_ate DATETIME NULL,
+    tentativas INT UNSIGNED NOT NULL DEFAULT 0,
+    ultimo_erro VARCHAR(500) NULL,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (pedido_id) REFERENCES pedidos_ingresso(id) ON DELETE CASCADE
+)` },
     {
         nome: 'custos_evento',
         sql: `CREATE TABLE IF NOT EXISTS custos_evento (
@@ -225,7 +237,7 @@ async function migrar({ log = () => {} } = {}) {
             await executarPasso(conn, passo, log);
         }
 
-        for (const passo of tabelas) {
+        for (const passo of [...tabelas.filter((t) => t.nome !== 'cancelamentos_ingresso'), ...tabelas.filter((t) => t.nome === 'cancelamentos_ingresso')]) {
             await conn.query(passo.sql);
             log(`Tabela ok: ${passo.nome}`);
         }

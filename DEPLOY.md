@@ -53,3 +53,10 @@ O script `npm run job:expirar-reservas` continua existindo caso prefira também 
 - Painel `https://demo.raulnikroyce.dev/`
 - `GET https://api-beco-underground.onrender.com/health` responde `{ "status": "ok" }` (503 se o MySQL não responder)
 - `GET /openapi.json` contrato das rotas
+
+
+## Migração de cancelamentos persistentes
+
+Esta revisão adiciona `cancelamentos_ingresso` por `npm run migrate` (também no boot) e mantém os dados existentes. O SQL equivalente está em `database/migrations/007_cancelamentos_ingresso.sql`; o migrador usa sua lista explícita e não descobre arquivos SQL automaticamente. Faça backup e execute a migração antes de servir a API nova. Não remova a tabela em rollback: suas tarefas preservam a chave de estorno para conciliação. Recuar para código antigo enquanto houver tarefas pendentes pode expor ingressos suspensos; nesse caso, mantenha checkout e check-in interrompidos até reconciliar as tarefas.
+
+A API retoma cancelamentos ao iniciar e no mesmo ciclo de cinco minutos da expiração. Mantenha ao menos uma instância ativa para essas tentativas. Se o processo cair após chamar o provedor, a lease expira em até 120 segundos; a próxima execução usa a chave original. Acompanhe os logs de cancelamento e registros pendentes com tentativas/ultimo_erro. Falhas persistentes pedem conciliação com o provedor antes de qualquer alteração manual. Publique a API com a migração antes da loja, que mostra o estado de cancelamento em processamento.

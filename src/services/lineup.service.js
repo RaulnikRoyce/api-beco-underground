@@ -8,16 +8,18 @@ const { podeEditarEvento } = require('../utils/evento.regras');
 exports.limitarCacheLineup = (lineup, usuario) => {
     if (usuario?.perfil === 'admin') return lineup;
     return (lineup || []).map((item) => {
-        const { cache, ...resto } = item;
+        const resto = { ...item };
+        delete resto.cache;
         return resto;
     });
 };
 
-exports.adicionarNaLineup = (evento_id, banda_id, horario, cache_negociado) =>
-    db.comTransacao(async (exec) => {
-        const eventos = await exec('SELECT id FROM eventos WHERE id = ?', [evento_id]);
-        if (!eventos.length) throw new AppError(404, 'Evento não encontrado');
+exports.adicionarNaLineup = async (evento_id, banda_id, horario, cache_negociado, usuario) => {
+    const evento = await eventoRepository.buscarPorId(evento_id);
+    if (!evento) throw new AppError(404, 'Evento não encontrado');
+    if (!podeEditarEvento(evento, usuario)) throw new AppError(403, 'Sem permissão para editar esta lineup');
 
+    return db.comTransacao(async (exec) => {
         const bandas = await exec('SELECT id FROM bandas WHERE id = ?', [banda_id]);
         if (!bandas.length) throw new AppError(404, 'Banda não encontrada');
 
@@ -29,6 +31,7 @@ exports.adicionarNaLineup = (evento_id, banda_id, horario, cache_negociado) =>
 
         return { id: result.insertId, evento_id, banda_id, horario, cache_negociado, token: token_publico };
     });
+};
 
 exports.listarLineupDoEvento = async (evento_id, usuario) => {
     const evento = await eventoRepository.buscarPorId(evento_id);
@@ -38,14 +41,18 @@ exports.listarLineupDoEvento = async (evento_id, usuario) => {
     return exports.limitarCacheLineup(lineup, usuario);
 };
 
-exports.atualizarSlot = async (id, dados) => {
+exports.atualizarSlot = async (id, dados, usuario) => {
     const slot = await lineupRepository.buscarPorId(id);
     if (!slot) throw new AppError(404, 'Escalação não encontrada');
+    const evento = await eventoRepository.buscarPorId(slot.evento_id);
+    if (!podeEditarEvento(evento, usuario)) throw new AppError(403, 'Sem permissão para editar esta lineup');
     return lineupRepository.atualizar(id, dados);
 };
 
-exports.removerSlot = async (id) => {
+exports.removerSlot = async (id, usuario) => {
     const slot = await lineupRepository.buscarPorId(id);
     if (!slot) throw new AppError(404, 'Escalação não encontrada');
+    const evento = await eventoRepository.buscarPorId(slot.evento_id);
+    if (!podeEditarEvento(evento, usuario)) throw new AppError(403, 'Sem permissão para editar esta lineup');
     await lineupRepository.excluir(id);
 };

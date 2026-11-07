@@ -180,6 +180,95 @@
     },
     "/dashboard/{evento_id}": {
       "get": { "summary": "Resumo de custo (admin)", "responses": { "200": { "description": "{ total_bandas, custo_total_caches, atracoes }" } } }
+    },
+    "/ingressos/pedidos/{codigo}": {
+      "get": {
+        "security": [],
+        "summary": "Consultar pedido público",
+        "parameters": [
+          {
+            "name": "codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Envelope dados com pedido, evento, itens e ingressos. pedido.cancelamento_pendente é 0 ou 1; enquanto for 1, ingressos é vazio, mesmo com status pago."
+          },
+          "404": {
+            "description": "Pedido não encontrado"
+          }
+        }
+      }
+    },
+    "/ingressos/webhook": {
+      "post": {
+        "security": [],
+        "summary": "Receber notificação de pagamento",
+        "description": "IDs em data.id ou id da query e data.id do corpo (ou id quando data.id ausente) precisam coincidir. O ID validado é usado tanto na assinatura quanto na consulta ao provedor. x-signature é exigida quando MP_WEBHOOK_SECRET está configurado.",
+        "responses": {
+          "200": {
+            "description": "Notificação processada ou ignorada"
+          },
+          "400": {
+            "description": "ID inválido ou divergente"
+          },
+          "401": {
+            "description": "Assinatura inválida"
+          },
+          "409": {
+            "description": "Pedido em cancelamento ou inconsistente"
+          }
+        }
+      }
+    },
+    "/eventos/{evento_id}/ingressos/pedidos/{codigo}/cancelar": {
+      "post": {
+        "summary": "Cancelar pedido (admin)",
+        "parameters": [
+          {
+            "name": "evento_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "Pedido pago registra tarefa persistente antes de chamar estorno. Ingressos ficam suspensos até conclusão; retomada automática usa a mesma chave de idempotência. Pedido pendente só cancela se ainda estiver pendente na transação.",
+        "responses": {
+          "200": {
+            "description": "Cancelamento concluído"
+          },
+          "400": {
+            "description": "Status não permite cancelamento"
+          },
+          "403": {
+            "description": "Sem permissão"
+          },
+          "404": {
+            "description": "Evento ou pedido não encontrado"
+          },
+          "409": {
+            "description": "Pedido mudou, cancelamento em processamento ou pedido sem ID de pagamento"
+          },
+          "502": {
+            "description": "Estorno sem confirmação. Tarefa permanece pendente e ingressos suspensos; retomada automática."
+          }
+        }
+      }
     }
   }
 }

@@ -4,7 +4,7 @@
 
 API REST para gestão de eventos independentes (lineup, artistas, cachê e ingressos).
 
-**Demo** [https://demo.raulnikroyce.dev/](https://demo.raulnikroyce.dev/) · **Loja** [https://ingressosbeco.raulnikroyce.dev](https://ingressosbeco.raulnikroyce.dev)  
+**Demo** [https://demo.raulnikroyce.dev/](https://demo.raulnikroyce.dev/) · **Loja** [https://ingressosbeco.raulnikroyce.dev](https://ingressosbeco.raulnikroyce.dev)
 **Painel** [frontend-beco-underground](https://github.com/RaulnikRoyce/frontend-beco-underground) · **Ingressos** [frontend-beco-ingressos](https://github.com/RaulnikRoyce/frontend-beco-ingressos) · **API** este repositório
 
 Produção usa os frontends Vue no Vercel, esta API no [Render](https://api-beco-underground.onrender.com) e MySQL na Aiven.
@@ -82,3 +82,14 @@ Listas de eventos aceitam `q`, `ordenar=data_desc|data_asc|nome` e, se `page` fo
 ## Produção
 
 Ver [DEPLOY.md](./DEPLOY.md). Variáveis de banco, `JWT_SECRET`, `CORS_ORIGIN`, `PORT`, `NODE_ENV=production`. Para ingressos, inclua `MP_ACCESS_TOKEN`, `LOJA_INGRESSOS_URL` e `API_PUBLIC_URL`. Host `*.aivencloud.com` liga SSL sozinho.
+
+
+## Correções da auditoria e testes financeiros
+
+O seed exige e-mail explícito e senha de 12 a 128 caracteres. Uma conta admin já existente é preservada, sem trocar senha. Uma conta produtora com o mesmo e-mail faz o comando recusar a operação; o seed não promove contas.
+
+`npm run test:integration` executa 17 cenários financeiros e HTTP com MySQL 8 real: confirmação concorrente, rollback, expiração, cancelamento concorrente, reparo simultâneo e parcial, retomada após falha SQL/reinício, lease e seed. Pagamentos são simulados e chamadas externas ficam bloqueadas. A suíte falha se o banco isolado não estiver explicitamente configurado; não carrega `.env`.
+
+Crie um MySQL 8 descartável em localhost com banco **beco_test**, sem dados reais. Configure na sessão `TEST_DB_HOST=127.0.0.1`, `TEST_DB_PORT`, `TEST_DB_NAME=beco_test`, `TEST_DB_USER`, `TEST_DB_PASSWORD` e `BECO_ALLOW_TEST_RESET=yes`. A suíte importa o schema, executa o migrador duas vezes e apaga fixtures desse banco. Nunca use credenciais ou bancos de produção. O CI provisiona seu próprio serviço MySQL e executa essa etapa após os testes unitários.
+
+Ver [decisões da auditoria](docs/decisoes-auditoria.md) e [orientações de implantação](DEPLOY.md).
